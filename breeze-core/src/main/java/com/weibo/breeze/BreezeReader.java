@@ -236,16 +236,11 @@ public class BreezeReader {
             case ARRAY:
                 if (clz.isArray()) {
                     List list = new ArrayList();
-                    readCollectionWithoutType(buffer, list, Object.class);
-                    if (clz.getComponentType().isPrimitive()) {
-                        Object objects = Array.newInstance(clz.getComponentType(), list.size());
-                        for (int i = 0; i < list.size(); i++) {
-                            Array.set(objects, i, list.get(i));
-                        }
-                        return (T) objects;
+                    readCollectionWithoutType(buffer, list, clz.getComponentType());
+                    Object objects = Array.newInstance(clz.getComponentType(), list.size());
+                    for (int i = 0; i < list.size(); i++) {
+                        Array.set(objects, i, list.get(i));
                     }
-                    Object[] objects = new Object[list.size()];
-                    list.toArray(objects);
                     return (T) objects;
                 }
                 if (clz.isAssignableFrom(ArrayList.class)) {
@@ -451,7 +446,7 @@ public class BreezeReader {
             throw new BreezeException("create new default Message fail. Message must have a constructor without arguments. e:" + e.getMessage());
         }
         String name = readString(buffer);
-        if (message.getName().equalsIgnoreCase(name) || message.getAlias().equalsIgnoreCase(name)) {
+        if (name != null && (name.equalsIgnoreCase(message.getName()) || name.equalsIgnoreCase(message.getAlias()))) {
             return message.readFromBuf(buffer);
         }
         throw new BreezeException("message name not correct. message clase:" + message.getClass().getName() + ", serialized name:" + name);
