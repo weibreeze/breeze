@@ -103,6 +103,8 @@ public class TestSubMsg implements Message {
                 case 11:
                     aBoolean = BreezeReader.readBool(buffer);
                     break;
+                default: // skip unknown field
+                    BreezeReader.readObject(buffer, Object.class);
             }
         });
         return this;

@@ -17,7 +17,7 @@ import static com.weibo.breeze.BreezeType.*;
  */
 @SuppressWarnings("all")
 public class BreezeWriter {
-    static int MAX_WRITE_COUNTE = 5; // default not check circular reference.
+    static int MAX_WRITE_COUNT = 5; // default not check circular reference.
 
     public static void writeString(BreezeBuffer buffer, String str) throws BreezeException {
         buffer.put(STRING);
@@ -259,9 +259,9 @@ public class BreezeWriter {
     }
 
     private static void checkWriteCount(BreezeBuffer buffer, Object object) throws BreezeException {
-        if (MAX_WRITE_COUNTE > 0) {
+        if (MAX_WRITE_COUNT > 0) {
             int count = buffer.writeCount(System.identityHashCode(object));
-            if (count > MAX_WRITE_COUNTE) {
+            if (count > MAX_WRITE_COUNT) {
                 throw new BreezeException("maybe circular reference。class:" + object.getClass());
             }
         }

@@ -29,6 +29,10 @@ public class GenericMessage implements Message {
         if (schema == null) {
             throw new BreezeException("without schema");
         }
+        Schema.Field field = schema.getFieldByName(name);
+        if (field != null) {
+            return fields.get(field.getIndex());
+        }
         return null;
     }
 

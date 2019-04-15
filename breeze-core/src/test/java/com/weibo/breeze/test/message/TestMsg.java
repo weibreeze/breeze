@@ -62,6 +62,8 @@ public class TestMsg implements Message {
                     list = new ArrayList<>();
                     BreezeReader.readCollection(buffer, list, TestSubMsg.class);
                     break;
+                default: // skip unknown field
+                    BreezeReader.readObject(buffer, Object.class);
             }
         });
         return this;

@@ -114,11 +114,11 @@ public class Breeze {
     }
 
     public static void setMaxWriteCount(int maxWriteCount) {
-        BreezeWriter.MAX_WRITE_COUNTE = maxWriteCount;
+        BreezeWriter.MAX_WRITE_COUNT = maxWriteCount;
     }
 
     public static int getMaxWriteCount() {
-        return BreezeWriter.MAX_WRITE_COUNTE;
+        return BreezeWriter.MAX_WRITE_COUNT;
     }
 
     private static class NoMessage implements Message {
