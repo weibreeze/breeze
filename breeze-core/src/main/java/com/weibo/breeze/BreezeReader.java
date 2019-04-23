@@ -104,7 +104,7 @@ public class BreezeReader {
         int endPos = startPos + size;
         int index;
         while (buffer.position() < endPos) {
-            index = buffer.getZigZag32();
+            index = buffer.getZigzag32();
             readField.readIndexField(index);
         }
         if (buffer.position() != endPos) {
@@ -120,7 +120,7 @@ public class BreezeReader {
         int startPos = buffer.position();
         int endPos = startPos + size;
         while (buffer.position() < endPos) {
-            fields.put(buffer.getZigZag32(), readObject(buffer, Object.class));
+            fields.put(buffer.getZigzag32(), readObject(buffer, Object.class));
         }
         if (buffer.position() != endPos) {
             throw new RuntimeException("Breeze deserialize wrong map size, except: " + size + " actual: " + (buffer.position() - startPos));
@@ -373,11 +373,11 @@ public class BreezeReader {
     }
 
     private static Integer readInt32WithoutType(BreezeBuffer buffer) {
-        return buffer.getZigZag32();
+        return buffer.getZigzag32();
     }
 
     private static Long readInt64WithoutType(BreezeBuffer buffer) {
-        return buffer.getZigZag64();
+        return buffer.getZigzag64();
     }
 
     private static Float readFloat32WithoutType(BreezeBuffer buffer) {
@@ -464,7 +464,7 @@ public class BreezeReader {
     public static int getAndCheckSize(BreezeBuffer buffer, boolean isZigZag) {
         int size;
         if (isZigZag) {
-            size = buffer.getZigZag32();
+            size = buffer.getZigzag32();
         } else {
             size = buffer.getInt();
         }

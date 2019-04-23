@@ -28,19 +28,19 @@ import java.util.Map;
 @SuppressWarnings("all")
 public class BreezeBuffer {
 
-    public static int encodeZigZag32(int value) {
+    public static int encodeZigzag32(int value) {
         return (value << 1) ^ (value >> 31);
     }
 
-    public static long encodeZigZag64(long value) {
+    public static long encodeZigzag64(long value) {
         return (value << 1) ^ (value >> 63);
     }
 
-    public static int decodeZigZag32(int n) {
+    public static int decodeZigzag32(int n) {
         return (n >>> 1) ^ -(n & 1);
     }
 
-    public static long decodeZigZag64(long n) {
+    public static long decodeZigzag64(long n) {
         return (n >>> 1) ^ -(n & 1);
     }
 
@@ -119,11 +119,11 @@ public class BreezeBuffer {
     }
 
     public int putZigzag32(int value) {
-        return putVarint(encodeZigZag32(value));
+        return putVarint(encodeZigzag32(value));
     }
 
     public int putZigzag64(long value) {
-        return putVarint(encodeZigZag64(value));
+        return putVarint(encodeZigzag64(value));
     }
 
     public int putVarint(long value) {
@@ -204,12 +204,12 @@ public class BreezeBuffer {
         return buf.getDouble(index);
     }
 
-    public int getZigZag32() {
-        return decodeZigZag32((int) getVarint());
+    public int getZigzag32() {
+        return decodeZigzag32((int) getVarint());
     }
 
-    public long getZigZag64() {
-        return decodeZigZag64(getVarint());
+    public long getZigzag64() {
+        return decodeZigzag64(getVarint());
     }
 
     public long getVarint() {
