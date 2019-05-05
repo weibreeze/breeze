@@ -396,8 +396,8 @@ public class BreezeReader {
         }
     }
 
-    private static byte[] readBytesWithoutType(BreezeBuffer buffer, boolean isZigZag) {
-        int size = getAndCheckSize(buffer, isZigZag);
+    private static byte[] readBytesWithoutType(BreezeBuffer buffer, boolean isZigzag) {
+        int size = getAndCheckSize(buffer, isZigzag);
         if (size == 0) {
             return new byte[]{};
         } else {
@@ -461,9 +461,9 @@ public class BreezeReader {
         return getAndCheckSize(buffer, false);
     }
 
-    public static int getAndCheckSize(BreezeBuffer buffer, boolean isZigZag) {
+    public static int getAndCheckSize(BreezeBuffer buffer, boolean isZigzag) {
         int size;
-        if (isZigZag) {
+        if (isZigzag) {
             size = buffer.getZigzag32();
         } else {
             size = buffer.getInt();

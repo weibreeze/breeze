@@ -18,7 +18,7 @@ public class TestSubMsg implements Message {
 
     static {
         try {
-            schema.setName(TestMsg.class.getName())
+            schema.setName("TestSubMsg")
                     .putField(new Schema.Field(1, "string", "string"))
                     .putField(new Schema.Field(2, "anInt", "int32"))
                     .putField(new Schema.Field(3, "aLong", "int64"))

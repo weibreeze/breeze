@@ -24,7 +24,7 @@ public class TestMsg implements Message {
 
     static {
         try {
-            schema.setName(TestMsg.class.getName())
+            schema.setName("TestMsg")
                     .putField(new Schema.Field(1, "anInt", "int32"))
                     .putField(new Schema.Field(2, "string", "string"))
                     .putField(new Schema.Field(3, "map", "map<string, message<TestSubMsg>>"))
