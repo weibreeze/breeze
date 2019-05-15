@@ -31,7 +31,7 @@ public class CommonSerializer<T> implements Serializer<T> {
         // public fields
         Field[] fields = clz.getFields();
         for (Field field : fields) {
-            if (Modifier.isFinal(field.getModifiers())){
+            if (Modifier.isFinal(field.getModifiers())) {
                 continue;
             }
             if (!WITH_STATIC_FIELD && Modifier.isStatic(field.getModifiers())) {
@@ -134,7 +134,7 @@ public class CommonSerializer<T> implements Serializer<T> {
                 throw new BreezeException("not found field. class:" + clz.getName() + "index:" + index);
             }
             try {
-                field.fill(ft, BreezeReader.readObject(buffer, field.getFieldClass()));
+                field.fill(ft, BreezeReader.readObjectByType(buffer, field.getGenericType()));
             } catch (IllegalAccessException e) {
                 throw new BreezeException("CommonSerializer set field fail. e:" + e.getMessage());
             }

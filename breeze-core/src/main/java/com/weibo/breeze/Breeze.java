@@ -7,6 +7,8 @@ import com.weibo.breeze.serializer.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,6 +19,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * Created by zhanglei28 on 2019/3/25.
  */
 public class Breeze {
+    public static final String KEY_TYPE_SUFFIX = "KeyType";
+    public static final String VALUE_TYPE_SUFFIX = "ValueType";
+
     private static final Logger logger = LoggerFactory.getLogger(Breeze.class);
     private static SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private static ConcurrentHashMap<String, Message> messageInstanceMap = new ConcurrentHashMap<>(128);
@@ -119,6 +124,26 @@ public class Breeze {
 
     public static int getMaxWriteCount() {
         return BreezeWriter.MAX_WRITE_COUNT;
+    }
+
+    /**
+     * add map or list field genericType into a type's map
+     *
+     * @param genericTypes
+     * @param clz
+     * @param fieldName
+     */
+    public static void addGenericType(Map<String, Type> genericTypes, Class clz, String fieldName) {
+        try {
+            ParameterizedType pt = (ParameterizedType) clz.getDeclaredField(fieldName).getGenericType();
+            if (pt.getRawType() instanceof Map) {
+                genericTypes.put(fieldName + KEY_TYPE_SUFFIX, pt.getActualTypeArguments()[0]);
+                genericTypes.put(fieldName + VALUE_TYPE_SUFFIX, pt.getActualTypeArguments()[1]);
+            } else if (pt.getRawType() instanceof List) {
+                genericTypes.put(fieldName + VALUE_TYPE_SUFFIX, pt.getActualTypeArguments()[0]);
+            }
+        } catch (NoSuchFieldException ignore) {
+        }
     }
 
     private static class NoMessage implements Message {
