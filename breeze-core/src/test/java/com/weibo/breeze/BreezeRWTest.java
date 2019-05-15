@@ -40,7 +40,7 @@ public class BreezeRWTest {
                 new Object[]{(byte) 'x', (byte) 28, Byte.MAX_VALUE, Byte.MIN_VALUE},
                 new Object[]{'x', 'd'},
                 new Object[]{"x89798df".getBytes(), "usiodjfe".getBytes()},
-                new Object[]{new String[]{"sdjfkljf", "n,mnzcv","erueoiwr"}, new Integer[]{12,45,7654,5675}, new long[]{234l, 564l, 546435l}},
+                new Object[]{new String[]{"sdjfkljf", "n,mnzcv", "erueoiwr"}, new Integer[]{12, 45, 7654, 5675}, new long[]{234l, 564l, 546435l}},
         };
         for (Object[] obj : objects) {
             testBase(obj);
@@ -154,16 +154,16 @@ public class BreezeRWTest {
                 byte[] bytes1 = (byte[]) o;
                 byte[] bytes2 = BreezeReader.readObject(newBuf, byte[].class);
                 assertArrayEquals(bytes1, bytes2);
-            } else if (o.getClass().isArray()){
-                if (o.getClass().getComponentType().isPrimitive()){
+            } else if (o.getClass().isArray()) {
+                if (o.getClass().getComponentType().isPrimitive()) {
                     Object ro = BreezeReader.readObject(newBuf, o.getClass());
                     for (int i = 0; i < Array.getLength(o); i++) {
                         assertEquals(Array.get(o, i), Array.get(ro, i));
                     }
-                }else{
-                    assertArrayEquals((Object[])o, (Object[])BreezeReader.readObject(newBuf, o.getClass()));
+                } else {
+                    assertArrayEquals((Object[]) o, (Object[]) BreezeReader.readObject(newBuf, o.getClass()));
                 }
-            } else{
+            } else {
                 assertEquals(o, BreezeReader.readObject(newBuf, o.getClass()));
             }
         }
@@ -236,14 +236,31 @@ public class BreezeRWTest {
         listx.add(true);
         map2.put(6, listx);
         testSubMsg.setMap2(map2);
+        Map<Integer, List<Map<String, List<Integer>>>> genericMap = new HashMap<>();
+        List<Integer> gInnerList = new ArrayList<>();
+        gInnerList.add(345);
+        gInnerList.add(7890);
+        Map<String, List<Integer>> gmap = new HashMap<>();
+        gmap.put("sjdi*", gInnerList);
+        gmap.put("78", gInnerList);
+        List<Map<String, List<Integer>>> glist = new ArrayList<>();
+        glist.add(gmap);
+        glist.add(gmap);
+        genericMap.put(234, glist);
+        testSubMsg.setGenericMap(genericMap);
+
 
         TestSubMsg testSubMsg2 = new TestSubMsg();
         testSubMsg2.setList(new ArrayList<>());
+
+        TestSubMsg testSubMsg3 = new TestSubMsg();
+        testSubMsg3.setAnInt(234);
 
         map.put("1", testSubMsg);
         map.put("2", testSubMsg2);
 
         testMsg.setMap(map);
+        testMsg.setTestSubMsg(testSubMsg3);
         return testMsg;
     }
 

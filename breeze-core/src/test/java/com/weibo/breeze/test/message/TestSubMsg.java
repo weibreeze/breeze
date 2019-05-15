@@ -1,12 +1,10 @@
 package com.weibo.breeze.test.message;
 
-import com.weibo.breeze.BreezeBuffer;
-import com.weibo.breeze.BreezeException;
-import com.weibo.breeze.BreezeReader;
-import com.weibo.breeze.BreezeWriter;
+import com.weibo.breeze.*;
 import com.weibo.breeze.message.Message;
 import com.weibo.breeze.message.Schema;
 
+import java.lang.reflect.Type;
 import java.util.*;
 
 /**
@@ -15,6 +13,7 @@ import java.util.*;
 public class TestSubMsg implements Message {
 
     private static final Schema schema = new Schema();
+    private static final Map<String, Type> genericTypes = new HashMap<>();
 
     static {
         try {
@@ -32,7 +31,9 @@ public class TestSubMsg implements Message {
                     .putField(new Schema.Field(11, "aBoolean", "bool"));
         } catch (BreezeException ignore) {
         }
+        Breeze.addGenericType(genericTypes, TestSubMsg.class, "genericMap");
     }
+
 
     private String string;
     private int anInt;
@@ -45,6 +46,7 @@ public class TestSubMsg implements Message {
     private Map<Integer, List> map2;
     private List<Integer> list;
     private boolean aBoolean;
+    private Map<Integer, List<Map<String, List<Integer>>>> genericMap;
 
     @Override
     public void writeToBuf(BreezeBuffer buffer) throws BreezeException {
@@ -60,6 +62,7 @@ public class TestSubMsg implements Message {
             BreezeWriter.writeMessageField(buffer, 9, map2);
             BreezeWriter.writeMessageField(buffer, 10, list);
             BreezeWriter.writeMessageField(buffer, 11, aBoolean);
+            BreezeWriter.writeMessageField(buffer, 12, genericMap);
         });
     }
 
@@ -98,10 +101,14 @@ public class TestSubMsg implements Message {
                     break;
                 case 10:
                     list = new ArrayList<>();
-                    BreezeReader.readCollection(buffer, list, Integer.class);
+                    BreezeReader.readCollectionByType(buffer, list, genericTypes.get("list" + Breeze.VALUE_TYPE_SUFFIX));
                     break;
                 case 11:
                     aBoolean = BreezeReader.readBool(buffer);
+                    break;
+                case 12:
+                    genericMap = new HashMap<>();
+                    BreezeReader.readMapByType(buffer, genericMap, genericTypes.get("genericMap" + Breeze.KEY_TYPE_SUFFIX), genericTypes.get("genericMap" + Breeze.VALUE_TYPE_SUFFIX));
                     break;
                 default: // skip unknown field
                     BreezeReader.readObject(buffer, Object.class);
@@ -218,6 +225,14 @@ public class TestSubMsg implements Message {
         this.aBoolean = aBoolean;
     }
 
+    public Map<Integer, List<Map<String, List<Integer>>>> getGenericMap() {
+        return genericMap;
+    }
+
+    public void setGenericMap(Map<Integer, List<Map<String, List<Integer>>>> genericMap) {
+        this.genericMap = genericMap;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -234,6 +249,7 @@ public class TestSubMsg implements Message {
         if (string != null ? !string.equals(that.string) : that.string != null) return false;
         if (!Arrays.equals(bytes, that.bytes)) return false;
         if (map2 != null ? !map2.equals(that.map2) : that.map2 != null) return false;
+        if (genericMap != null ? !genericMap.equals(that.genericMap) : that.genericMap != null) return false;
         return list != null ? list.equals(that.list) : that.list == null;
     }
 
@@ -250,6 +266,7 @@ public class TestSubMsg implements Message {
         result = 31 * result + (int) aByte;
         result = 31 * result + Arrays.hashCode(bytes);
         result = 31 * result + (map2 != null ? map2.hashCode() : 0);
+        result = 31 * result + (genericMap != null ? genericMap.hashCode() : 0);
         result = 31 * result + (list != null ? list.hashCode() : 0);
         result = 31 * result + (aBoolean ? 1 : 0);
         return result;

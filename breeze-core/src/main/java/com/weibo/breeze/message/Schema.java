@@ -2,6 +2,7 @@ package com.weibo.breeze.message;
 
 import com.weibo.breeze.BreezeException;
 
+import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -160,6 +161,10 @@ public class Schema {
 
         public Class<?> getFieldClass() {
             return field.getType();
+        }
+
+        public Type getGenericType() {
+            return field.getGenericType();
         }
 
         public void fill(Object target, Object fieldObject) throws IllegalAccessException {

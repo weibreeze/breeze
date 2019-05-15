@@ -7,6 +7,8 @@ import com.weibo.breeze.serializer.Serializer;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Array;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.*;
 
 import static com.weibo.breeze.BreezeType.*;
@@ -67,9 +69,14 @@ public class BreezeReader {
         return readBytesWithoutType(buffer, false);
     }
 
-    public static <T, K> void readMap(BreezeBuffer buffer, Map<T, K> map, Class<T> keyclz, Class<K> valueclz) throws BreezeException {
+    public static <T, K> void readMap(BreezeBuffer buffer, Map<T, K> map, Class<T> keyClz, Class<K> valueClz) throws BreezeException {
+        readMapByType(buffer, map, keyClz, valueClz);
+    }
+
+    // with generic type
+    public static <T, K> void readMapByType(BreezeBuffer buffer, Map<T, K> map, Type keyType, Type valueType) throws BreezeException {
         checkType(buffer, MAP);
-        readMapWithoutType(buffer, map, keyclz, valueclz);
+        readMapWithoutType(buffer, map, keyType, valueType);
     }
 
     public static Map readMap(BreezeBuffer buffer) throws BreezeException {
@@ -79,8 +86,13 @@ public class BreezeReader {
     }
 
     public static <T> void readCollection(BreezeBuffer buffer, Collection<T> collection, Class<T> clz) throws BreezeException {
+        readCollectionByType(buffer, collection, clz);
+    }
+
+    // with generic type
+    public static <T> void readCollectionByType(BreezeBuffer buffer, Collection<T> collection, Type type) throws BreezeException {
         checkType(buffer, ARRAY);
-        readCollectionWithoutType(buffer, collection, clz);
+        readCollectionWithoutType(buffer, collection, type);
     }
 
     public static Message readMessage(BreezeBuffer buffer, Class<? extends Message> clz) throws BreezeException {
@@ -139,87 +151,109 @@ public class BreezeReader {
         }
     }
 
-    //
     public static <T> T readObject(BreezeBuffer buffer, Class<T> clz) throws BreezeException {
         if (clz == null) {
-            throw new BreezeException("class type must not null in method readObject");
+            throw new BreezeException("class type must not null");
         }
-        T t = null;
+        return (T) readObjectByType(buffer, clz);
+    }
+
+    public static Object readObjectByType(BreezeBuffer buffer, Type type) throws BreezeException {
+        if (type == null){
+            type = Object.class;
+        }
+        Class clz;
+        ParameterizedType pt = null;
+        if (type instanceof Class) {
+            clz = (Class) type;
+        } else if (type instanceof ParameterizedType) {
+            pt = (ParameterizedType) type;
+            clz = (Class) pt.getRawType();
+        } else {
+            throw new BreezeException("unknown read type :" + type);
+        }
+        Type keyType = Object.class;
+        Type valueType = Object.class;
+        Object o = null;
         Serializer serializer;
-        byte type = buffer.get();
-        switch (type) {
+        byte breezeType = buffer.get();
+        switch (breezeType) {
             case NULL:
                 return null;
             case STRING:
                 String string = readStringWithoutType(buffer);
                 if (clz == String.class || clz == Object.class) {
-                    return (T) string;
+                    return string;
                 }
-                t = adaptFromString(string, clz);
+                o = adaptFromString(string, clz);
                 break;
             case BYTE_ARRAY:
                 byte[] bytes = readBytesWithoutType(buffer, false);
                 if (clz == byte[].class || clz == Object.class) {
-                    return (T) bytes;
+                    return bytes;
                 }
                 break;
             case TRUE:
                 if (clz == boolean.class || clz == Boolean.class || clz == Object.class) {
-                    return (T) Boolean.TRUE;
+                    return Boolean.TRUE;
                 }
                 break;
             case FALSE:
                 if (clz == boolean.class || clz == Boolean.class || clz == Object.class) {
-                    return (T) Boolean.FALSE;
+                    return Boolean.FALSE;
                 }
                 break;
             case BYTE:
                 Byte aByte = readByteWithoutType(buffer);
                 if (clz == byte.class || clz == Byte.class || clz == Object.class) {
-                    return (T) aByte;
+                    return aByte;
                 }
                 break;
             case INT16:
                 Short aShort = readInt16WithoutType(buffer);
                 if (clz == short.class || clz == Short.class || clz == Object.class) {
-                    return (T) aShort;
+                    return aShort;
                 }
-                t = adaptFromNumber(aShort, clz);
+                o = adaptFromNumber(aShort, clz);
                 break;
             case INT32:
                 Integer integer = readInt32WithoutType(buffer);
                 if (clz == int.class || clz == Integer.class || clz == Object.class) {
-                    return (T) integer;
+                    return integer;
                 }
-                t = adaptFromNumber(integer, clz);
+                o = adaptFromNumber(integer, clz);
                 break;
             case INT64:
                 Long aLong = readInt64WithoutType(buffer);
                 if (clz == long.class || clz == Long.class || clz == Object.class) {
-                    return (T) aLong;
+                    return aLong;
                 }
-                t = adaptFromNumber(aLong, clz);
+                o = adaptFromNumber(aLong, clz);
                 break;
             case FLOAT32:
                 Float aFloat = readFloat32WithoutType(buffer);
                 if (clz == float.class || clz == Float.class || clz == Object.class) {
-                    return (T) aFloat;
+                    return aFloat;
                 }
-                t = adaptFromNumber(aFloat, clz);
+                o = adaptFromNumber(aFloat, clz);
                 break;
             case FLOAT64:
                 Double aDouble = readFloat64WithoutType(buffer);
                 if (clz == double.class || clz == Double.class || clz == Object.class) {
-                    return (T) aDouble;
+                    return aDouble;
                 }
-                t = adaptFromNumber(aDouble, clz);
+                o = adaptFromNumber(aDouble, clz);
                 break;
             case MAP:
+                if (pt != null && pt.getActualTypeArguments().length == 2) {
+                    keyType = pt.getActualTypeArguments()[0];
+                    valueType = pt.getActualTypeArguments()[1];
+                }
                 if (clz.isAssignableFrom(HashMap.class)) {
                     // contain Object, Map
                     Map map = new HashMap<>();
-                    readMapWithoutType(buffer, map, Object.class, Object.class);
-                    return (T) map;
+                    readMapWithoutType(buffer, map, keyType, valueType);
+                    return map;
                 }
                 if (!clz.isInterface() && Map.class.isAssignableFrom(clz)) {
                     Map map = null;
@@ -228,12 +262,15 @@ public class BreezeReader {
                     } catch (Exception ignore) {
                     }
                     if (map != null) {
-                        readMapWithoutType(buffer, map, Object.class, Object.class);
-                        return (T) map;
+                        readMapWithoutType(buffer, map, keyType, valueType);
+                        return map;
                     }
                 }
                 break;
             case ARRAY:
+                if (pt != null && pt.getActualTypeArguments().length == 1) {
+                    valueType = pt.getActualTypeArguments()[0];
+                }
                 if (clz.isArray()) {
                     List list = new ArrayList();
                     readCollectionWithoutType(buffer, list, clz.getComponentType());
@@ -241,17 +278,17 @@ public class BreezeReader {
                     for (int i = 0; i < list.size(); i++) {
                         Array.set(objects, i, list.get(i));
                     }
-                    return (T) objects;
+                    return objects;
                 }
                 if (clz.isAssignableFrom(ArrayList.class)) {
                     List list = new ArrayList();
-                    readCollectionWithoutType(buffer, list, Object.class);
-                    return (T) list;
+                    readCollectionWithoutType(buffer, list, valueType);
+                    return list;
                 }
                 if (clz.isAssignableFrom(HashSet.class)) {
                     HashSet hs = new HashSet();
-                    readCollectionWithoutType(buffer, hs, Object.class);
-                    return (T) hs;
+                    readCollectionWithoutType(buffer, hs, valueType);
+                    return hs;
                 }
                 if (!clz.isInterface() && Collection.class.isAssignableFrom(clz)) {
                     Collection collection = null;
@@ -260,52 +297,52 @@ public class BreezeReader {
                     } catch (Exception ignore) {
                     }
                     if (collection != null) {
-                        readCollectionWithoutType(buffer, collection, Object.class);
-                        return (T) collection;
+                        readCollectionWithoutType(buffer, collection, valueType);
+                        return collection;
                     }
                 }
                 break;
             case MESSAGE:
                 if (Message.class.isAssignableFrom(clz)) {
-                    return (T) readMessageWithoutType(buffer, (Class<Message>) clz);
+                    return readMessageWithoutType(buffer, (Class<Message>) clz);
                 }
                 if (clz == Object.class) {
                     int pos = buffer.position();
                     String name = readString(buffer);
                     Message message = Breeze.getMessageInstance(name);
                     if (message != null) {
-                        return (T) message.readFromBuf(buffer);
+                        return message.readFromBuf(buffer);
                     }
                     serializer = Breeze.getSerializer(name);
                     if (serializer != null) {
                         buffer.position(pos);
-                        return (T) readBySerializer(buffer, serializer);
+                        return readBySerializer(buffer, serializer);
                     }
                     GenericMessage genericMessage = new GenericMessage();
                     genericMessage.setName(name);
                     genericMessage.readFromBuf(buffer);
-                    return (T) genericMessage;
+                    return genericMessage;
                 }
                 break;
             case SCHEMA:
                 if (clz == Schema.class) {
-                    return (T) readSchemaWithOutType(buffer);
+                    return readSchemaWithOutType(buffer);
                 } else {
                     //TODO autoscan register？
                 }
                 break;
             default:
-                throw new RuntimeException("Breeze not support " + type + " with receiver type:" + clz);
+                throw new RuntimeException("Breeze not support " + breezeType + " with receiver type:" + clz);
         }
-        if (t != null) {
-            return t;
+        if (o != null) {
+            return o;
         }
         //
         serializer = Breeze.getSerializer(clz);
         if (serializer != null) {
-            return (T) readBySerializer(buffer, serializer);
+            return readBySerializer(buffer, serializer);
         }
-        throw new RuntimeException("Breeze not support " + type + " with receiver type:" + clz);
+        throw new RuntimeException("Breeze not support " + breezeType + " with receiver type:" + clz);
     }
 
     private static <T> T adaptFromString(String string, Class<T> clz) {
@@ -407,7 +444,7 @@ public class BreezeReader {
         }
     }
 
-    private static <T, K> void readMapWithoutType(BreezeBuffer buffer, Map<T, K> map, Class<T> keyClz, Class<K> valueClz) throws BreezeException {
+    private static <T, K> void readMapWithoutType(BreezeBuffer buffer, Map<T, K> map, Type keyType, Type valueType) throws BreezeException {
 
         int size = getAndCheckSize(buffer);
         if (size == 0) {
@@ -416,14 +453,14 @@ public class BreezeReader {
         int startPos = buffer.position();
         int endPos = startPos + size;
         while (buffer.position() < endPos) {
-            map.put(readObject(buffer, keyClz), readObject(buffer, valueClz));
+            map.put((T) readObjectByType(buffer, keyType), (K) readObjectByType(buffer, valueType));
         }
         if (buffer.position() != endPos) {
             throw new RuntimeException("Breeze deserialize wrong map size, except: " + size + " actual: " + (buffer.position() - startPos));
         }
     }
 
-    private static <T> void readCollectionWithoutType(BreezeBuffer buffer, Collection<T> collection, Class<T> clz) throws BreezeException {
+    private static <T> void readCollectionWithoutType(BreezeBuffer buffer, Collection<T> collection, Type type) throws BreezeException {
         int size = getAndCheckSize(buffer);
         if (size == 0) {
             return;
@@ -431,7 +468,7 @@ public class BreezeReader {
         int startPos = buffer.position();
         int endPos = startPos + size;
         while (buffer.position() < endPos) {
-            collection.add(readObject(buffer, clz));
+            collection.add((T) readObjectByType(buffer, type));
         }
         if (buffer.position() != endPos) {
             throw new RuntimeException("Breeze deserialize wrong array size, except: " + size + " actual: " + (buffer.position() - startPos));

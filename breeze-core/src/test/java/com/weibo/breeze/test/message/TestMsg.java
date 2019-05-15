@@ -21,6 +21,7 @@ public class TestMsg implements Message {
     private Map<String, TestSubMsg> map;
     private List<TestSubMsg> list;
     private static final Schema schema = new Schema();
+    private TestSubMsg testSubMsg;
 
     static {
         try {
@@ -41,6 +42,7 @@ public class TestMsg implements Message {
             BreezeWriter.writeMessageField(buffer, 2, string);
             BreezeWriter.writeMessageField(buffer, 3, map);
             BreezeWriter.writeMessageField(buffer, 4, list);
+            BreezeWriter.writeMessageField(buffer, 5, testSubMsg);
         });
     }
 
@@ -61,6 +63,9 @@ public class TestMsg implements Message {
                 case 4:
                     list = new ArrayList<>();
                     BreezeReader.readCollection(buffer, list, TestSubMsg.class);
+                    break;
+                case 5:
+                    testSubMsg = BreezeReader.readObject(buffer, TestSubMsg.class);
                     break;
                 default: // skip unknown field
                     BreezeReader.readObject(buffer, Object.class);
@@ -119,6 +124,14 @@ public class TestMsg implements Message {
 
     public void setList(List<TestSubMsg> list) {
         this.list = list;
+    }
+
+    public TestSubMsg getTestSubMsg() {
+        return testSubMsg;
+    }
+
+    public void setTestSubMsg(TestSubMsg testSubMsg) {
+        this.testSubMsg = testSubMsg;
     }
 
     @Override
