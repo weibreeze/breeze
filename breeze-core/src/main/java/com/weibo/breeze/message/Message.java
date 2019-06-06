@@ -1,7 +1,7 @@
 package com.weibo.breeze.message;
 
-import com.weibo.breeze.BreezeException;
 import com.weibo.breeze.BreezeBuffer;
+import com.weibo.breeze.BreezeException;
 
 /**
  * Created by zhanglei28 on 2019/3/21.
@@ -12,9 +12,10 @@ public interface Message {
 
     /**
      * read message fields
-     * @param buffer
-     * @return
-     * @throws BreezeException
+     *
+     * @param buffer BreezeBuffer
+     * @return Breeze message
+     * @throws BreezeException serialize exception
      */
     Message readFromBuf(BreezeBuffer buffer) throws BreezeException;
 

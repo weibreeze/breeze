@@ -8,30 +8,17 @@ import java.util.Map;
 
 /**
  * Created by zhanglei28 on 2019/3/21.
- * <p>
- * not
  */
 public class Schema {
-    private static final Map<String, String> typeMap = new HashMap<>();
-
-    static {
-        typeMap.put("string", "java.lang.String");
-        typeMap.put("map", "java.util.Map");
-        typeMap.put("list", "java.util.List");
-        typeMap.put("byte[]", "[B");
-        typeMap.put("bool", "boolean");
-        typeMap.put("int16", "short");
-        typeMap.put("int32", "int");
-        typeMap.put("in64", "long");
-        typeMap.put("float32", "float");
-        typeMap.put("float64", "double");
-    }
-
-    private String name;//class name
+    private String name;//schema name
     private String alias;
+    private String javaName; // java class name. it will null if not a inner class.
     private boolean primitive = true; // is generated from schema. true : from schema; false : from class dynamically
     private Map<String, Field> fieldNameMap = new HashMap<>();
     private Map<Integer, Field> fieldIndexMap = new HashMap<>(0);
+    private boolean isEnum;
+    private Map<Integer, String> enumValues = new HashMap<>(0);
+    private Map<String, Integer> enumNameMap = new HashMap<>(0);
 
     public static Schema newSchema(String name) {
         return new Schema().setName(name);
@@ -93,8 +80,38 @@ public class Schema {
         return this;
     }
 
+    public String getJavaName() {
+        return javaName;
+    }
+
+    public void setJavaName(String javaName) {
+        this.javaName = javaName;
+    }
+
     public Schema setPrimitive(boolean primitive) {
         this.primitive = primitive;
+        return this;
+    }
+
+    public boolean isEnum() {
+        return isEnum;
+    }
+
+    public void setEnum(boolean anEnum) {
+        isEnum = anEnum;
+    }
+
+    public Map<Integer, String> getEnumValues() {
+        return enumValues;
+    }
+
+    public Integer getEnumNumber(String name) {
+        return enumNameMap.get(name);
+    }
+
+    public Schema addEnumValue(Integer number, String value) {
+        enumValues.put(number, value);
+        enumNameMap.put(value, number);
         return this;
     }
 

@@ -17,7 +17,7 @@ import static com.weibo.breeze.BreezeType.*;
  */
 @SuppressWarnings("all")
 public class BreezeWriter {
-    static int MAX_WRITE_COUNT = 5; // default not check circular reference.
+    static int MAX_WRITE_COUNT = 10; // default not check circular reference.
 
     public static void writeString(BreezeBuffer buffer, String str) throws BreezeException {
         buffer.put(STRING);
@@ -100,7 +100,19 @@ public class BreezeWriter {
     }
 
     public static void writeMessageField(BreezeBuffer buffer, Integer index, Object field) throws BreezeException {
-        if (index != null && field != null) {
+        writeMessageField(buffer, index, field, true);
+    }
+
+    public static void writeMessageField(BreezeBuffer buffer, Integer index, Object field, boolean checkDefault) throws BreezeException {
+        if (field != null) {
+            if (checkDefault) { // not write if field is default value
+                if (field instanceof Number && ((Number) field).intValue() == 0) {
+                    return;
+                }
+                if (field instanceof Boolean && !((Boolean) field).booleanValue()) {
+                    return;
+                }
+            }
             buffer.putZigzag32(index);
             writeObject(buffer, field);
         }
@@ -259,7 +271,7 @@ public class BreezeWriter {
     }
 
     private static void checkWriteCount(BreezeBuffer buffer, Object object) throws BreezeException {
-        if (MAX_WRITE_COUNT > 0) {
+        if (MAX_WRITE_COUNT > 0 && !(object instanceof Enum)) {
             int count = buffer.writeCount(System.identityHashCode(object));
             if (count > MAX_WRITE_COUNT) {
                 throw new BreezeException("maybe circular reference。class:" + object.getClass());

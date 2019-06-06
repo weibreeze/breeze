@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Breeze {
     public static final String KEY_TYPE_SUFFIX = "KeyType";
     public static final String VALUE_TYPE_SUFFIX = "ValueType";
+    public static final String BREEZE_SERIALIZER_SUFFIX = "BreezeSerializer";
 
     private static final Logger logger = LoggerFactory.getLogger(Breeze.class);
     private static SerializerFactory serializerFactory = new DefaultSerializerFactory();
@@ -29,6 +30,7 @@ public class Breeze {
             new DateSerializer(),
             new BigDecimalSerializer(),
             new TimestampSerializer(),
+            new BigIntegerSerializer(),
     };
     private static List<SerializerResolver> extResolver = new ArrayList<>();
 
@@ -38,7 +40,7 @@ public class Breeze {
             try {
                 registerSerializer(serializer);
             } catch (BreezeException e) {
-                logger.warn("register default serializer fail. serializer:{}, e:{}", serializer.getClass().getName(), e.getMessage());
+                logger.warn("register default breeze serializer fail. serializer:{}, e:{}", serializer.getClass().getName(), e.getMessage());
             }
         }
         // add protobuf resolver if found
@@ -97,7 +99,7 @@ public class Breeze {
                 Class clz = Class.forName(name, true, Thread.currentThread().getContextClassLoader());
                 if (Message.class.isAssignableFrom(clz)) {
                     messageInstanceMap.put(name, (Message) clz.newInstance());
-                    return messageInstanceMap.get(name);
+                    return messageInstanceMap.get(name).getDefaultInstance();
                 }
             } catch (ReflectiveOperationException ignore) {
                 messageInstanceMap.put(name, NoMessage.instance);
@@ -126,21 +128,36 @@ public class Breeze {
         return BreezeWriter.MAX_WRITE_COUNT;
     }
 
+    // preload all breeze schemas in every jar
+    public static boolean preLoadSchemas() {
+        return SchemaLoader.loadAllSchema();
+    }
+
+    public static String getCleanName(String name) {
+        if (name.contains("$")) {
+            name = name.replaceAll("\\$", "");
+        }
+        return name;
+    }
+
     /**
      * add map or list field genericType into a type's map
      *
-     * @param genericTypes
-     * @param clz
-     * @param fieldName
+     * @param genericTypes generic type map to add
+     * @param clz          target class to find out generic type
+     * @param fieldName    target field name of target class
      */
     public static void addGenericType(Map<String, Type> genericTypes, Class clz, String fieldName) {
         try {
-            ParameterizedType pt = (ParameterizedType) clz.getDeclaredField(fieldName).getGenericType();
-            if (pt.getRawType() instanceof Map) {
-                genericTypes.put(fieldName + KEY_TYPE_SUFFIX, pt.getActualTypeArguments()[0]);
-                genericTypes.put(fieldName + VALUE_TYPE_SUFFIX, pt.getActualTypeArguments()[1]);
-            } else if (pt.getRawType() instanceof List) {
-                genericTypes.put(fieldName + VALUE_TYPE_SUFFIX, pt.getActualTypeArguments()[0]);
+            Type type = clz.getDeclaredField(fieldName).getGenericType();
+            if (type instanceof ParameterizedType) {
+                ParameterizedType pt = (ParameterizedType) type;
+                if (Map.class.isAssignableFrom((Class) pt.getRawType())) {
+                    genericTypes.put(fieldName + KEY_TYPE_SUFFIX, pt.getActualTypeArguments()[0]);
+                    genericTypes.put(fieldName + VALUE_TYPE_SUFFIX, pt.getActualTypeArguments()[1]);
+                } else if (List.class.isAssignableFrom((Class) pt.getRawType())) {
+                    genericTypes.put(fieldName + VALUE_TYPE_SUFFIX, pt.getActualTypeArguments()[0]);
+                }
             }
         } catch (NoSuchFieldException ignore) {
         }
@@ -179,6 +196,7 @@ public class Breeze {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static class DefaultSerializerFactory implements SerializerFactory {
 
         private DefaultSerializerFactory() {
@@ -196,6 +214,12 @@ public class Breeze {
                     if (serializer != null) {
                         return serializer;
                     }
+                    // serializer by specified class name
+                    serializer = getSerializerClassByName(cur.getName());
+                    if (serializer != null) {
+                        return serializer;
+                    }
+
                     cur = cur.getSuperclass();
                 }
 
@@ -223,7 +247,14 @@ public class Breeze {
 
                 if (clz != Object.class && !clz.isInterface()) {
                     try {
-                        CommonSerializer commonSerializer = new CommonSerializer(clz);
+                        // load from META-INF/breeze/${className}.breeze
+                        Schema schema = SchemaLoader.loadSchema(clz.getName());
+                        CommonSerializer commonSerializer;
+                        if (schema != null) {
+                            commonSerializer = new CommonSerializer(schema);
+                        } else {
+                            commonSerializer = new CommonSerializer(clz);
+                        }
                         registerSerializer(commonSerializer);
                         return commonSerializer;
                     } catch (BreezeException e) {
@@ -244,12 +275,12 @@ public class Breeze {
 
         @Override
         public Serializer getSerializer(String name) {
-            return serializerMap.get(name);
+            return serializerMap.get(getCleanName(name));
         }
 
         @Override
         public Serializer removeSerializer(String name) {
-            return serializerMap.remove(name);
+            return serializerMap.remove(getCleanName(name));
         }
 
         @Override
@@ -266,9 +297,10 @@ public class Breeze {
             if (serializer == null) {
                 throw new BreezeException("serializer is null. name: " + name);
             }
+            name = getCleanName(name);
             Serializer old = serializerMap.put(name, serializer);
             if (old != null) {
-                logger.warn("DefaultSerializerFactory-serializer name {}: {} replaced by {}", new Object[]{name, old.getClass(), serializer.getClass()});
+                logger.warn("DefaultSerializerFactory-serializer name {}: {} replaced by {}", name, old.getClass(), serializer.getClass());
             }
             logger.info("register breeze serializer:" + name);
         }
@@ -277,9 +309,22 @@ public class Breeze {
         public Map<String, Serializer> getSerializers() {
             return Collections.unmodifiableMap(serializerMap);
         }
+
+        public static Serializer getSerializerClassByName(String className) {
+            try {
+                Class serializerClass = Class.forName(getCleanName(className) + BREEZE_SERIALIZER_SUFFIX);
+                if (Serializer.class.isAssignableFrom(serializerClass)) {
+                    Serializer serializer = (Serializer) serializerClass.newInstance();
+                    Breeze.registerSerializer(serializer);
+                    return serializer;
+                }
+            } catch (Exception ignore) {
+            }
+            return null;
+        }
     }
 
-    public static interface SerializerResolver {
-        Serializer getSerializer(Class clz);
+    public interface SerializerResolver {
+        Serializer getSerializer(Class<?> clz);
     }
 }

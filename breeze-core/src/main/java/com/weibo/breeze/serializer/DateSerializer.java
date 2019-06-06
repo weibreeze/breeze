@@ -13,9 +13,7 @@ import java.util.Date;
 public class DateSerializer implements Serializer<Date> {
     @Override
     public void writeToBuf(Date date, BreezeBuffer buffer) throws BreezeException {
-        BreezeWriter.writeMessage(buffer, Date.class.getName(), () -> {
-            BreezeWriter.writeMessageField(buffer, 1, date.getTime());
-        });
+        BreezeWriter.writeMessage(buffer, Date.class.getName(), () -> BreezeWriter.writeMessageField(buffer, 1, date.getTime()));
     }
 
     @Override

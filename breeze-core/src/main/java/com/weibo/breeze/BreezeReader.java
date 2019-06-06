@@ -3,6 +3,7 @@ package com.weibo.breeze;
 import com.weibo.breeze.message.GenericMessage;
 import com.weibo.breeze.message.Message;
 import com.weibo.breeze.message.Schema;
+import com.weibo.breeze.serializer.CommonSerializer;
 import com.weibo.breeze.serializer.Serializer;
 
 import java.io.UnsupportedEncodingException;
@@ -159,7 +160,7 @@ public class BreezeReader {
     }
 
     public static Object readObjectByType(BreezeBuffer buffer, Type type) throws BreezeException {
-        if (type == null){
+        if (type == null) {
             type = Object.class;
         }
         Class clz;
@@ -306,22 +307,30 @@ public class BreezeReader {
                 if (Message.class.isAssignableFrom(clz)) {
                     return readMessageWithoutType(buffer, (Class<Message>) clz);
                 }
-                if (clz == Object.class) {
+                if (clz == Object.class || clz.isInterface()) {
                     int pos = buffer.position();
                     String name = readString(buffer);
                     Message message = Breeze.getMessageInstance(name);
                     if (message != null) {
                         return message.readFromBuf(buffer);
                     }
-                    serializer = Breeze.getSerializer(name);
+                    serializer = Breeze.getSerializer(name); // direct register serializer
+                    if (serializer == null) {// has breeze schema file
+                        Schema schema = SchemaLoader.loadSchema(name);
+                        if (schema != null) {
+                            serializer = new CommonSerializer(schema);
+                        }
+                    }
                     if (serializer != null) {
                         buffer.position(pos);
                         return readBySerializer(buffer, serializer);
                     }
-                    GenericMessage genericMessage = new GenericMessage();
-                    genericMessage.setName(name);
-                    genericMessage.readFromBuf(buffer);
-                    return genericMessage;
+                    if (clz == Object.class) {
+                        GenericMessage genericMessage = new GenericMessage();
+                        genericMessage.setName(name);
+                        genericMessage.readFromBuf(buffer);
+                        return genericMessage;
+                    }
                 }
                 break;
             case SCHEMA:
