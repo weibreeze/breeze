@@ -14,9 +14,7 @@ public class BigDecimalSerializer implements Serializer<BigDecimal> {
 
     @Override
     public void writeToBuf(BigDecimal obj, BreezeBuffer buffer) throws BreezeException {
-        BreezeWriter.writeMessage(buffer, BigDecimal.class.getName(), () -> {
-            BreezeWriter.writeMessageField(buffer, 1, obj.toString());
-        });
+        BreezeWriter.writeMessage(buffer, BigDecimal.class.getName(), () -> BreezeWriter.writeMessageField(buffer, 1, obj.toString()));
     }
 
     @Override

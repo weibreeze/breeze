@@ -1,29 +1,24 @@
 package com.weibo.breeze.serializer;
 
-import com.weibo.breeze.BreezeBuffer;
-import com.weibo.breeze.BreezeException;
-import com.weibo.breeze.BreezeReader;
-import com.weibo.breeze.BreezeWriter;
+import com.weibo.breeze.*;
 import com.weibo.breeze.message.Schema;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by zhanglei28 on 2019/3/27.
  */
+@SuppressWarnings("unchecked")
 public class CommonSerializer<T> implements Serializer<T> {
     public static boolean WITH_STATIC_FIELD = false;
-    Class<T> clz;
-    Method buildMethod;
-    Object buildObject;
-    Schema schema;
-    ArrayList<String> names = new ArrayList<>();
+    private Class<T> clz;
+    private Method buildMethod;
+    private Object buildObject;
+    private Schema schema;
+    private ArrayList<String> names = new ArrayList<>();
 
     public CommonSerializer(Class<T> clz) throws BreezeException {
         checkClass(clz);
@@ -69,15 +64,16 @@ public class CommonSerializer<T> implements Serializer<T> {
         }
 
         this.clz = clz;
-        names.add(clz.getName());
+        names.add(Breeze.getCleanName(clz.getName()));
     }
+
 
     public CommonSerializer(Schema schema) throws BreezeException {
         if (schema == null) {
             throw new BreezeException("BreezeSchema must not null when create CommonSerializer");
         }
         try {
-            clz = (Class<T>) Class.forName(schema.getName(), true, Schema.class.getClassLoader());
+            clz = (Class<T>) Class.forName(schema.getJavaName() != null ? schema.getJavaName() : schema.getName(), true, Schema.class.getClassLoader());
         } catch (ClassNotFoundException e) {
             throw new BreezeException("can not create class in CommonSerializer, class name:" + schema.getName());
         }
@@ -94,12 +90,12 @@ public class CommonSerializer<T> implements Serializer<T> {
             }
         }
         this.schema = schema;
-        names.add(clz.getName());
+        names.add(Breeze.getCleanName(clz.getName()));
     }
 
     @Override
     public void writeToBuf(Object obj, BreezeBuffer buffer) throws BreezeException {
-        BreezeWriter.writeMessage(buffer, obj.getClass().getName(), () -> {
+        BreezeWriter.writeMessage(buffer, names.get(0), () -> {
             Map<Integer, Schema.Field> fieldMap = schema.getFields();
             for (Map.Entry<Integer, Schema.Field> entry : fieldMap.entrySet()) {
                 try {
@@ -114,14 +110,15 @@ public class CommonSerializer<T> implements Serializer<T> {
     @Override
     public T readFromBuf(BreezeBuffer buffer) throws BreezeException {
         T t = null;
-        try {
-            t = clz.newInstance();
-        } catch (ReflectiveOperationException e) {
-            if (buildMethod != null) {
-                try {
-                    t = (T) buildMethod.invoke(buildObject);
-                } catch (ReflectiveOperationException e1) {
-                }
+        if (buildMethod != null) {
+            try {
+                t = (T) buildMethod.invoke(buildObject);
+            } catch (ReflectiveOperationException e1) {
+            }
+        } else {
+            try {
+                t = clz.newInstance();
+            } catch (ReflectiveOperationException e) {
             }
         }
         if (t == null) {
@@ -130,8 +127,8 @@ public class CommonSerializer<T> implements Serializer<T> {
         final T ft = t;
         BreezeReader.readMessage(buffer, true, (int index) -> {
             Schema.Field field = schema.getFieldByIndex(index);
-            if (field == null) {
-                throw new BreezeException("not found field. class:" + clz.getName() + "index:" + index);
+            if (field == null) { // ignore unknown fields
+                BreezeReader.readObject(buffer, Object.class);
             }
             try {
                 field.fill(ft, BreezeReader.readObjectByType(buffer, field.getGenericType()));
@@ -162,9 +159,7 @@ public class CommonSerializer<T> implements Serializer<T> {
         Field[] fields;
         do {
             fields = clz.getDeclaredFields();
-            for (Field field : fields) {
-                list.add(field);
-            }
+            Collections.addAll(list, fields);
             clz = clz.getSuperclass();
         } while (clz != null && clz != Object.class);
         return list;
@@ -172,7 +167,7 @@ public class CommonSerializer<T> implements Serializer<T> {
 
     //get field not only public
     private static Field getField(Class clz, String name) throws NoSuchFieldException {
-        Field field = null;
+        Field field;
         do {
             try {
                 field = clz.getDeclaredField(name);
@@ -184,7 +179,7 @@ public class CommonSerializer<T> implements Serializer<T> {
         throw new NoSuchFieldException();
     }
 
-    private void checkClass(Class clz) throws BreezeException {
+    private void checkClass(Class<T> clz) throws BreezeException {
         if (clz == null) {
             throw new BreezeException("class must not null when create CommonSerializer");
         }
@@ -208,7 +203,8 @@ public class CommonSerializer<T> implements Serializer<T> {
                 }
             } catch (ReflectiveOperationException e1) {
             }
-            throw new BreezeException("class must has constructor with no arguments, or has builder like lombok.");
+            //TODO use default value
+            throw new BreezeException("class must has constructor without arguments, or has builder like lombok.");
         }
     }
 

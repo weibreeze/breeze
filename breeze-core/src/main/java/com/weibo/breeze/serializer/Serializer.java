@@ -13,16 +13,11 @@ public interface Serializer<T> {
      * read entire message from buffer.
      * the serializer need process message type, name and fields.
      *
-     * @param buffer
-     * @return
-     * @throws BreezeException
+     * @param buffer BreezeBuffer
+     * @return generic object
+     * @throws BreezeException serialize exception
      */
     T readFromBuf(BreezeBuffer buffer) throws BreezeException;
 
-    /**
-     * get class names or alias can be handled by serializer.
-     *
-     * @return
-     */
     String[] getNames();
 }

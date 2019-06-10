@@ -13,9 +13,7 @@ import java.sql.Timestamp;
 public class TimestampSerializer implements Serializer<Timestamp> {
     @Override
     public void writeToBuf(Timestamp obj, BreezeBuffer buffer) throws BreezeException {
-        BreezeWriter.writeMessage(buffer, Timestamp.class.getName(), () -> {
-            BreezeWriter.writeMessageField(buffer, 1, obj.getTime());
-        });
+        BreezeWriter.writeMessage(buffer, Timestamp.class.getName(), () -> BreezeWriter.writeMessageField(buffer, 1, obj.getTime()));
     }
 
     @Override

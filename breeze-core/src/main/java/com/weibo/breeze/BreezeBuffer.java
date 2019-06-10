@@ -55,7 +55,7 @@ public class BreezeBuffer {
         this.buf = buf;
     }
 
-    public BreezeBuffer(byte[] bytes){
+    public BreezeBuffer(byte[] bytes) {
         this.buf = ByteBuffer.wrap(bytes);
     }
 
@@ -156,9 +156,10 @@ public class BreezeBuffer {
     /**
      * get bytes remained in buf.
      * this method always return a new copy of buf bytes.
+     *
      * @return
      */
-    public byte[] getBytes(){
+    public byte[] getBytes() {
         byte[] result = new byte[buf.remaining()];
         buf.get(result);
         return result;
@@ -257,8 +258,8 @@ public class BreezeBuffer {
         buf.clear();
     }
 
-    public int writeCount(int hash){
-        if (writeCountor == null){
+    public int writeCount(int hash) {
+        if (writeCountor == null) {
             writeCountor = new WriteCountor();
         }
         return writeCountor.put(hash);
@@ -282,14 +283,15 @@ public class BreezeBuffer {
         }
     }
 
-    public static class WriteCountor{
+    public static class WriteCountor {
         private Map<Integer, Integer> map = new HashMap<>();
-        public int put(int hash){
+
+        public int put(int hash) {
             Integer count = map.get(hash);
-            if (count == null){
-               count = 0;
+            if (count == null) {
+                count = 0;
             }
-            count = count +1;
+            count = count + 1;
             map.put(hash, count);
             return count;
         }

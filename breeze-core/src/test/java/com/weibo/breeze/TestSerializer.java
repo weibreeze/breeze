@@ -3,6 +3,7 @@ package com.weibo.breeze;
 import org.junit.Test;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.util.Date;
 
@@ -32,5 +33,12 @@ public class TestSerializer {
         Timestamp timestamp = new Timestamp(2134);
         Timestamp timestamp1 = BreezeRWTest.testSerialize(timestamp, Timestamp.class);
         assertEquals(timestamp.getTime(), timestamp1.getTime());
+    }
+
+    @Test
+    public void testBigInteger() throws Exception {
+        BigInteger bigInteger = new BigInteger("897982374983274");
+        BigInteger bigInteger1 = BreezeRWTest.testSerialize(bigInteger, BigInteger.class);
+        assertEquals(bigInteger.toString(), bigInteger1.toString());
     }
 }

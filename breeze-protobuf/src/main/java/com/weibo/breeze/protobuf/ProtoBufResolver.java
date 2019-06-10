@@ -14,11 +14,10 @@ public class ProtoBufResolver implements Breeze.SerializerResolver {
     private static final Logger logger = LoggerFactory.getLogger(ProtoBufResolver.class);
 
     @Override
-    public Serializer getSerializer(Class clz) {
+    public Serializer getSerializer(Class<?> clz) {
         if (Message.class.isAssignableFrom(clz)) {
             try {
-                ProtobufSerializer protobufSerializer = new ProtobufSerializer(clz);
-                return protobufSerializer;
+                return new ProtobufSerializer(clz);
             } catch (BreezeException e) {
                 logger.warn("register ext serializer fail. clz:{}, e:{}", clz.getName(), e.getMessage());
             }

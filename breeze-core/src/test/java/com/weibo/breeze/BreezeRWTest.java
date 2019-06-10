@@ -4,6 +4,7 @@ import com.weibo.breeze.message.GenericMessage;
 import com.weibo.breeze.message.Schema;
 import com.weibo.breeze.serializer.CommonSerializer;
 import com.weibo.breeze.serializer.Serializer;
+import com.weibo.breeze.test.message.MyEnum;
 import com.weibo.breeze.test.message.TestMsg;
 import com.weibo.breeze.test.message.TestSubMsg;
 import com.weibo.breeze.test.obj.TestEnum;
@@ -52,7 +53,7 @@ public class BreezeRWTest {
         TestMsg testMsg = getDefaultTestMsg();
         TestMsg testMsg1 = testSerialize(testMsg, TestMsg.class);
         assertTrue(testMsg.equals(testMsg1));
-        assertArrayEquals(testMsg.getMap().get("1").getMap().get("k2"), testMsg.getMap().get("1").getMap().get("k2"));
+        assertArrayEquals(testMsg.getMyMap().get("1").getMyMap1().get("k2"), testMsg.getMyMap().get("1").getMyMap1().get("k2"));
 
         // generic message
         GenericMessage genericMessage = new GenericMessage();
@@ -209,58 +210,54 @@ public class BreezeRWTest {
 
     public TestMsg getDefaultTestMsg() {
         TestMsg testMsg = new TestMsg();
-        testMsg.setString("testmmm");
-        testMsg.setAnInt(3);
+        testMsg.setMyString("testmmm");
+        testMsg.setMyInt(3);
         Map<String, TestSubMsg> map = new HashMap<>();
         TestSubMsg testSubMsg = new TestSubMsg();
-        testSubMsg.setAnInt(11);
-        testSubMsg.setString("tsmmmmm");
-        testSubMsg.setaBoolean(true);
-        testSubMsg.setaByte(BreezeType.MESSAGE);
-        testSubMsg.setaDouble(23.456d);
-        testSubMsg.setaFloat(3.1415f);
-        testSubMsg.setBytes("xxxx".getBytes());
-        testSubMsg.setaLong(33l);
+        testSubMsg.setMyInt(11);
+        testSubMsg.setMyString("tsmmmmm");
+        testSubMsg.setMyBool(true);
+        testSubMsg.setMyByte(BreezeType.MESSAGE);
+        testSubMsg.setMyFloat64(23.456d);
+        testSubMsg.setMyFloat32(3.1415f);
+        testSubMsg.setMyBytes("xxxx".getBytes());
+        testSubMsg.setMyInt64(33l);
         List<Integer> list = new ArrayList<>();
         list.add(23);
         list.add(56);
-        testSubMsg.setList(list);
+        testSubMsg.setMyArray(list);
         Map<String, byte[]> submap = new HashMap<>();
         submap.put("k1", "vv".getBytes());
         submap.put("k2", "vvvv".getBytes());
-        testSubMsg.setMap(submap);
-        Map<Integer, List> map2 = new HashMap<>();
-        List listx = new ArrayList();
+        testSubMsg.setMyMap1(submap);
+        Map<Integer, List<Integer>> map2 = new HashMap<>();
+        List<Integer> listx = new ArrayList();
         listx.add(234);
-        listx.add("jheiur");
-        listx.add(true);
+        listx.add(567);
+        listx.add(789);
         map2.put(6, listx);
-        testSubMsg.setMap2(map2);
-        Map<Integer, List<Map<String, List<Integer>>>> genericMap = new HashMap<>();
-        List<Integer> gInnerList = new ArrayList<>();
-        gInnerList.add(345);
-        gInnerList.add(7890);
-        Map<String, List<Integer>> gmap = new HashMap<>();
-        gmap.put("sjdi*", gInnerList);
-        gmap.put("78", gInnerList);
-        List<Map<String, List<Integer>>> glist = new ArrayList<>();
-        glist.add(gmap);
-        glist.add(gmap);
-        genericMap.put(234, glist);
-        testSubMsg.setGenericMap(genericMap);
+        testSubMsg.setMyMap2(map2);
 
 
         TestSubMsg testSubMsg2 = new TestSubMsg();
-        testSubMsg2.setList(new ArrayList<>());
+        testSubMsg2.setMyArray(new ArrayList<>());
 
         TestSubMsg testSubMsg3 = new TestSubMsg();
-        testSubMsg3.setAnInt(234);
+        testSubMsg3.setMyInt(234);
 
         map.put("1", testSubMsg);
         map.put("2", testSubMsg2);
 
-        testMsg.setMap(map);
-        testMsg.setTestSubMsg(testSubMsg3);
+        testMsg.setMyMap(map);
+        testMsg.setSubMsg(testSubMsg3);
+
+        testMsg.setMyEnum(MyEnum.E2);
+
+        List<MyEnum> myEnums = new ArrayList<>();
+        myEnums.add(MyEnum.E3);
+        myEnums.add(MyEnum.E2);
+        myEnums.add(MyEnum.E1);
+        testMsg.setEnumArray(myEnums);
         return testMsg;
     }
 
