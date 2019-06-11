@@ -27,6 +27,8 @@ import java.util.Map;
  */
 @SuppressWarnings("all")
 public class BreezeBuffer {
+    private Map<String, Integer> messageTypeRefIndex = new HashMap<>();
+    private int messageTypeRefCount;
 
     public static int encodeZigzag32(int value) {
         return (value << 1) ^ (value >> 31);
@@ -295,5 +297,13 @@ public class BreezeBuffer {
             map.put(hash, count);
             return count;
         }
+    }
+
+    public void putMessageType(String name){
+        messageTypeRefIndex.put(name, ++messageTypeRefCount);
+    }
+
+    public Integer getMessageTypeIndex(String name){
+        return messageTypeRefIndex.get(name);
     }
 }

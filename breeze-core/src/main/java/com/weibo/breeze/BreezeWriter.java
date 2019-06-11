@@ -19,7 +19,10 @@ import static com.weibo.breeze.BreezeType.*;
 public class BreezeWriter {
     static int MAX_WRITE_COUNT = 10; // default not check circular reference.
 
-    public static void writeString(BreezeBuffer buffer, String str) throws BreezeException {
+    public static void writeString(BreezeBuffer buffer, String str, boolean withType) throws BreezeException {
+        if (withType){
+
+        }
         buffer.put(STRING);
         byte[] b = new byte[0];
         try {
@@ -31,51 +34,51 @@ public class BreezeWriter {
         buffer.put(b);
     }
 
-    public static void writeBytes(BreezeBuffer buffer, byte[] value) {
+    public static void writeBytes(BreezeBuffer buffer, byte[] value, boolean withType) {
         buffer.put(BYTE_ARRAY);
         buffer.putInt(value.length);
         buffer.put(value);
     }
 
-    public static void writeBool(BreezeBuffer buffer, boolean value) {
-        if (value) {
+    public static void writeBool(BreezeBuffer buffer, boolean value, boolean withType) {
+        if (value, boolean withType) {
             buffer.put(TRUE);
         } else {
             buffer.put(FALSE);
         }
     }
 
-    public static void writeByte(BreezeBuffer buffer, byte value) {
+    public static void writeByte(BreezeBuffer buffer, byte value, boolean withType) {
         buffer.put(BYTE);
         buffer.put(value);
     }
 
-    public static void writeInt16(BreezeBuffer buffer, short value) {
+    public static void writeInt16(BreezeBuffer buffer, short value, boolean withType) {
         buffer.put(INT16);
         buffer.putShort(value);
     }
 
-    public static void writeInt32(BreezeBuffer buffer, int value) {
+    public static void writeInt32(BreezeBuffer buffer, int value, boolean withType) {
         buffer.put(INT32);
         buffer.putZigzag32(value);
     }
 
-    public static void writeInt64(BreezeBuffer buffer, long value) {
+    public static void writeInt64(BreezeBuffer buffer, long value, boolean withType) {
         buffer.put(INT64);
         buffer.putZigzag64(value);
     }
 
-    public static void writeFloat32(BreezeBuffer buffer, float value) {
+    public static void writeFloat32(BreezeBuffer buffer, float value, boolean withType) {
         buffer.put(FLOAT32);
         buffer.putFloat(value);
     }
 
-    public static void writeFloat64(BreezeBuffer buffer, double value) {
+    public static void writeFloat64(BreezeBuffer buffer, double value, boolean withType) {
         buffer.put(FLOAT64);
         buffer.putDouble(value);
     }
 
-    public static void writeMessage(BreezeBuffer buffer, String name, Map<Integer, Object> fields) throws BreezeException {
+    public static void writeMessage(BreezeBuffer buffer, String name, Map<Integer, Object> fields, boolean withType) throws BreezeException {
         int pos = startWriteMessage(buffer, name);
         for (Map.Entry<Integer, Object> entry : fields.entrySet()) {
             writeMessageField(buffer, entry.getKey(), entry.getValue());
@@ -100,10 +103,10 @@ public class BreezeWriter {
     }
 
     public static void writeMessageField(BreezeBuffer buffer, Integer index, Object field) throws BreezeException {
-        writeMessageField(buffer, index, field, true);
+        writeMessageField(buffer, index, field, true, true);
     }
 
-    public static void writeMessageField(BreezeBuffer buffer, Integer index, Object field, boolean checkDefault) throws BreezeException {
+    public static void writeMessageField(BreezeBuffer buffer, Integer index, Object field, boolean checkDefault, boolean isPack) throws BreezeException {
         if (field != null) {
             if (checkDefault) { // not write if field is default value
                 if (field instanceof Number && ((Number) field).intValue() == 0) {
@@ -114,7 +117,7 @@ public class BreezeWriter {
                 }
             }
             buffer.putZigzag32(index);
-            writeObject(buffer, field);
+            writeObject(buffer, field, true, isPack);
         }
     }
 
@@ -133,7 +136,7 @@ public class BreezeWriter {
         }
     }
 
-    public static void writeObject(BreezeBuffer buffer, Object object) throws BreezeException {
+    public static void writeObject(BreezeBuffer buffer, Object object, boolean withType, boolean isPack) throws BreezeException {
         if (object == null) {
             buffer.put(NULL);
             return;
@@ -181,7 +184,7 @@ public class BreezeWriter {
 
         if (object instanceof Map) {
             checkWriteCount(buffer, object);
-            writeMap(buffer, (Map) object);
+            writeMap(buffer, (Map) object, isPack);
             return;
         }
 
@@ -195,9 +198,9 @@ public class BreezeWriter {
                     for (int i = 0; i < objects.length; i++) {
                         objects[i] = Array.get(object, i);
                     }
-                    writeArray(buffer, objects);
+                    writeArray(buffer, objects, isPack);
                 } else {
-                    writeArray(buffer, (Object[]) object);
+                    writeArray(buffer, (Object[]) object, isPack);
                 }
             }
             return;
@@ -205,7 +208,7 @@ public class BreezeWriter {
 
         if (object instanceof Collection) {
             checkWriteCount(buffer, object);
-            writeCollection(buffer, (Collection) object);
+            writeCollection(buffer, (Collection) object, isPack);
             return;
         }
         if (object instanceof Message) {
@@ -222,7 +225,7 @@ public class BreezeWriter {
         throw new BreezeException("Breeze unsupported type: " + clz);
     }
 
-    public static void writeMap(BreezeBuffer buffer, Map<?, ?> value) throws BreezeException {
+    public static void writeMap(BreezeBuffer buffer, Map<?, ?> value, boolean withType, boolean isPack) throws BreezeException {
         buffer.put(MAP);
         int pos = buffer.position();
         buffer.position(pos + 4);
@@ -230,8 +233,8 @@ public class BreezeWriter {
             if (entry.getKey() == null || entry.getValue() == null) {
                 continue;
             }
-            writeObject(buffer, entry.getKey());
-            writeObject(buffer, entry.getValue());
+            writeObject(buffer, entry.getKey(), isPack);
+            writeObject(buffer, entry.getValue(), isPack);
         }
         int npos = buffer.position();
         buffer.position(pos);
@@ -239,12 +242,12 @@ public class BreezeWriter {
         buffer.position(npos);
     }
 
-    public static void writeArray(BreezeBuffer buffer, Object[] value) throws BreezeException {
+    public static void writeArray(BreezeBuffer buffer, Object[] value, boolean withType, boolean isPack) throws BreezeException {
         buffer.put(ARRAY);
         int pos = buffer.position();
         buffer.position(pos + 4);
         for (int i = 0; i < value.length; i++) {
-            writeObject(buffer, value[i]);
+            writeObject(buffer, value[i], isPack);
         }
         int npos = buffer.position();
         buffer.position(pos);
@@ -252,12 +255,12 @@ public class BreezeWriter {
         buffer.position(npos);
     }
 
-    public static void writeCollection(BreezeBuffer buffer, Collection<?> value) throws BreezeException {
+    public static void writeCollection(BreezeBuffer buffer, Collection<?> value, boolean withType, boolean isPack) throws BreezeException {
         buffer.put(ARRAY);
         int pos = buffer.position();
         buffer.position(pos + 4);
         for (Object v : value) {
-            writeObject(buffer, v);
+            writeObject(buffer, v, isPack);
         }
         int npos = buffer.position();
         buffer.position(pos);
