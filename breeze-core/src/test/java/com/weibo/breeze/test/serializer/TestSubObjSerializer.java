@@ -28,13 +28,13 @@ public class TestSubObjSerializer implements Serializer<TestSubObj> {
     @Override
     public TestSubObj readFromBuf(BreezeBuffer buffer) throws BreezeException {
         TestSubObj tso = new TestSubObj();
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             switch (index) {
                 case 1:
-                    tso.setAnInt(BreezeReader.readInt32(buffer));
+                    tso.setAnInt(BreezeReader.readInt32(buffer, true));
                     break;
                 case 2:
-                    tso.setString(BreezeReader.readString(buffer));
+                    tso.setString(BreezeReader.readString(buffer, true));
                     break;
                 case 3:
                     Map<String, String> map = new HashMap<>();

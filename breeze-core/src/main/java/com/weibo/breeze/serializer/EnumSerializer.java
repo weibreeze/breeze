@@ -16,7 +16,7 @@ public class EnumSerializer implements Serializer<Enum> {
     private Method valueOf;
     private Schema schema;
     private Map<Integer, Field> enumFields;
-    private String name;
+    private String cleanName;
 
     @SuppressWarnings("unchecked")
     public EnumSerializer(Class enumClz) throws BreezeException {
@@ -45,7 +45,7 @@ public class EnumSerializer implements Serializer<Enum> {
                 }
             }
         }
-        name = Breeze.getCleanName(enumClz.getName());
+        cleanName = Breeze.getCleanName(enumClz.getName());
     }
 
     @Override
@@ -53,12 +53,12 @@ public class EnumSerializer implements Serializer<Enum> {
         if (schema != null && schema.isEnum()) { // only write enum number when has enum schema
             Integer number = schema.getEnumNumber(obj.name());
             if (number == null) {
-                throw new BreezeException("unknown enum name in breeze schema. class:" + enumClz.getName() + ", enum name:" + obj.name());
+                throw new BreezeException("unknown enum cleanName in breeze schema. class:" + enumClz.getName() + ", enum cleanName:" + obj.name());
             }
-            BreezeWriter.writeMessage(buffer, name, () -> BreezeWriter.writeMessageField(buffer, 1, number));
+            BreezeWriter.writeMessage(buffer, cleanName, () -> BreezeWriter.writeMessageField(buffer, 1, number));
         } else {
-            // write enum name when not formal enum
-            BreezeWriter.writeMessage(buffer, name, () -> {
+            // write enum cleanName when not formal enum
+            BreezeWriter.writeMessage(buffer, cleanName, () -> {
                 BreezeWriter.writeMessageField(buffer, 1, obj.name());
                 // write additional fields according schema
                 if (enumFields != null) {
@@ -77,19 +77,19 @@ public class EnumSerializer implements Serializer<Enum> {
     @Override
     public Enum readFromBuf(BreezeBuffer buffer) throws BreezeException {
         Object[] objects = new Object[2];
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             switch (index) {
                 case 1:
                     String name;
                     if (schema != null && schema.isEnum()) {
-                        int number = BreezeReader.readInt32(buffer);
+                        int number = BreezeReader.readInt32(buffer, true);
                         name = schema.getEnumValues().get(number);
                         if (name == null) {
                             objects[1] = new BreezeException("unknown enum number " + number);
                             return;
                         }
                     } else {
-                        name = BreezeReader.readString(buffer);
+                        name = BreezeReader.readString(buffer, true);
                     }
                     try {
                         objects[0] = valueOf.invoke(null, enumClz, name);
@@ -109,6 +109,9 @@ public class EnumSerializer implements Serializer<Enum> {
 
     @Override
     public String[] getNames() {
-        return new String[]{name};
+        if (enumClz.getName().contains("$")) {
+            return new String[]{cleanName, enumClz.getName()};
+        }
+        return new String[]{cleanName};
     }
 }

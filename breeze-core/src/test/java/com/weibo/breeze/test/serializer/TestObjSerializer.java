@@ -30,16 +30,16 @@ public class TestObjSerializer implements Serializer<TestObj> {
     @Override
     public TestObj readFromBuf(BreezeBuffer buffer) throws BreezeException {
         TestObj to = new TestObj();
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             switch (index) {
                 case 1:
                     to.setSubObj(BreezeReader.readObject(buffer, TestSubObj.class));
                     break;
                 case 2:
-                    to.setString(BreezeReader.readString(buffer));
+                    to.setString(BreezeReader.readString(buffer, true));
                     break;
                 case 3:
-                    to.setInteger(BreezeReader.readInt32(buffer));
+                    to.setInteger(BreezeReader.readInt32(buffer, true));
                     break;
                 case 4:
                     List<TestSubObj> list = new ArrayList<>();

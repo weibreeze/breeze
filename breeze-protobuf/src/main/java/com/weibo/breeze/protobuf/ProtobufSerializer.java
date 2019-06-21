@@ -78,7 +78,7 @@ public class ProtobufSerializer<T extends Message> implements Serializer<T> {
     public T readFromBuf(BreezeBuffer buffer) throws BreezeException {
         Message.Builder builder = defaultInstance.newBuilderForType();
         BreezeException[] exception = new BreezeException[]{null};
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             Descriptors.FieldDescriptor field = fields.get(index);
             if (field == null) {
                 exception[0] = new BreezeException(names[0] + " not have field. index:" + index);

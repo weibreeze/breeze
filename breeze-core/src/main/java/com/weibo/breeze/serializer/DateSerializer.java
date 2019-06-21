@@ -19,10 +19,10 @@ public class DateSerializer implements Serializer<Date> {
     @Override
     public Date readFromBuf(BreezeBuffer buffer) throws BreezeException {
         Date date = new Date(0);
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             switch (index) {
                 case 1:
-                    date.setTime(BreezeReader.readInt64(buffer));
+                    date.setTime(BreezeReader.readInt64(buffer, true));
                     break;
             }
         });

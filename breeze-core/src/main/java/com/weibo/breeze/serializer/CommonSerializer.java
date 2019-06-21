@@ -18,7 +18,7 @@ public class CommonSerializer<T> implements Serializer<T> {
     private Method buildMethod;
     private Object buildObject;
     private Schema schema;
-    private ArrayList<String> names = new ArrayList<>();
+    private String cleanName;
 
     public CommonSerializer(Class<T> clz) throws BreezeException {
         checkClass(clz);
@@ -64,7 +64,7 @@ public class CommonSerializer<T> implements Serializer<T> {
         }
 
         this.clz = clz;
-        names.add(Breeze.getCleanName(clz.getName()));
+        cleanName = Breeze.getCleanName(clz.getName());
     }
 
 
@@ -90,12 +90,12 @@ public class CommonSerializer<T> implements Serializer<T> {
             }
         }
         this.schema = schema;
-        names.add(Breeze.getCleanName(clz.getName()));
+        cleanName = Breeze.getCleanName(clz.getName());
     }
 
     @Override
     public void writeToBuf(Object obj, BreezeBuffer buffer) throws BreezeException {
-        BreezeWriter.writeMessage(buffer, names.get(0), () -> {
+        BreezeWriter.writeMessage(buffer, cleanName, () -> {
             Map<Integer, Schema.Field> fieldMap = schema.getFields();
             for (Map.Entry<Integer, Schema.Field> entry : fieldMap.entrySet()) {
                 try {
@@ -125,13 +125,13 @@ public class CommonSerializer<T> implements Serializer<T> {
             throw new BreezeException("CommonSerializer read fail. can not create default object. class:" + clz);
         }
         final T ft = t;
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             Schema.Field field = schema.getFieldByIndex(index);
             if (field == null) { // ignore unknown fields
                 BreezeReader.readObject(buffer, Object.class);
             }
             try {
-                field.fill(ft, BreezeReader.readObjectByType(buffer, field.getGenericType()));
+                field.fill(ft, BreezeReader.readObjectByType(buffer, field.getGenericType(), null));
             } catch (IllegalAccessException e) {
                 throw new BreezeException("CommonSerializer set field fail. e:" + e.getMessage());
             }
@@ -141,13 +141,10 @@ public class CommonSerializer<T> implements Serializer<T> {
 
     @Override
     public String[] getNames() {
-        String[] ns = new String[names.size()];
-        names.toArray(ns);
-        return ns;
-    }
-
-    public void addAlias(String alias) {
-        names.add(alias);
+        if (clz.getName().contains("$")) {
+            return new String[]{cleanName, clz.getName()};
+        }
+        return new String[]{cleanName};
     }
 
     public static int getHash(String name) {

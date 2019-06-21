@@ -275,12 +275,12 @@ public class Breeze {
 
         @Override
         public Serializer getSerializer(String name) {
-            return serializerMap.get(getCleanName(name));
+            return serializerMap.get(name);
         }
 
         @Override
         public Serializer removeSerializer(String name) {
-            return serializerMap.remove(getCleanName(name));
+            return serializerMap.remove(name);
         }
 
         @Override
@@ -297,7 +297,6 @@ public class Breeze {
             if (serializer == null) {
                 throw new BreezeException("serializer is null. name: " + name);
             }
-            name = getCleanName(name);
             Serializer old = serializerMap.put(name, serializer);
             if (old != null) {
                 logger.warn("DefaultSerializerFactory-serializer name {}: {} replaced by {}", name, old.getClass(), serializer.getClass());

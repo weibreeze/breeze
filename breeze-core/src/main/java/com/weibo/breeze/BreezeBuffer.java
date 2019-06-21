@@ -19,16 +19,12 @@
 package com.weibo.breeze;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Created by zhanglei28 on 2017/6/27.
  */
 @SuppressWarnings("all")
 public class BreezeBuffer {
-    private Map<String, Integer> messageTypeRefIndex = new HashMap<>();
-    private int messageTypeRefCount;
 
     public static int encodeZigzag32(int value) {
         return (value << 1) ^ (value >> 31);
@@ -47,7 +43,7 @@ public class BreezeBuffer {
     }
 
     private ByteBuffer buf;
-    private WriteCountor writeCountor;
+    private BreezeContext context;
 
     public BreezeBuffer(int initSize) {
         this.buf = ByteBuffer.allocate(initSize);
@@ -73,6 +69,11 @@ public class BreezeBuffer {
     public void put(byte[] b) {
         ensureBufferEnough(b.length);
         buf.put(b);
+    }
+
+    public void put(byte[] b, int offset, int length){
+        ensureBufferEnough(b.length);
+        buf.put(b, offset, length);
     }
 
     public void putShort(short value) {
@@ -143,6 +144,21 @@ public class BreezeBuffer {
         return count;
     }
 
+    public void putUTF8(String string){
+        putZigzag32(Utf8.encodedLength(string));
+        Utf8.encodeUtf8(string, buf);
+    }
+
+    public String getUTF8() throws BreezeException {
+        int size = getZigzag32();
+        if (size > buf.remaining()) {
+            throw new BreezeException("Breeze deserialize utf8 string fail! buffer not enough!need size:" + size);
+        }
+        String result = Utf8.decodeUtf8(buf, buf.position(), size);
+        buf.position(buf.position() + size);
+        return result;
+    }
+
     public byte get() {
         return buf.get();
     }
@@ -159,7 +175,8 @@ public class BreezeBuffer {
      * get bytes remained in buf.
      * this method always return a new copy of buf bytes.
      *
-     * @return
+     * @return byte[] return a new byte array
+     *
      */
     public byte[] getBytes() {
         byte[] result = new byte[buf.remaining()];
@@ -260,13 +277,6 @@ public class BreezeBuffer {
         buf.clear();
     }
 
-    public int writeCount(int hash) {
-        if (writeCountor == null) {
-            writeCountor = new WriteCountor();
-        }
-        return writeCountor.put(hash);
-    }
-
     private ByteBuffer grow(int size) {
         ByteBuffer newbuf = ByteBuffer.allocate(size);
         newbuf.put(buf.array());
@@ -285,25 +295,10 @@ public class BreezeBuffer {
         }
     }
 
-    public static class WriteCountor {
-        private Map<Integer, Integer> map = new HashMap<>();
-
-        public int put(int hash) {
-            Integer count = map.get(hash);
-            if (count == null) {
-                count = 0;
-            }
-            count = count + 1;
-            map.put(hash, count);
-            return count;
+    public BreezeContext getContext() {
+        if (context == null) {
+            context = new BreezeContext();
         }
-    }
-
-    public void putMessageType(String name){
-        messageTypeRefIndex.put(name, ++messageTypeRefCount);
-    }
-
-    public Integer getMessageTypeIndex(String name){
-        return messageTypeRefIndex.get(name);
+        return context;
     }
 }

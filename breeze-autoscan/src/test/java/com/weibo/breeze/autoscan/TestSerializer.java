@@ -23,10 +23,10 @@ public class TestSerializer implements Serializer<TestBean> {
     @Override
     public TestBean readFromBuf(BreezeBuffer buffer) throws BreezeException {
         TestBean testBean = new TestBean();
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             switch (index) {
                 case 1:
-                    testBean.setName(BreezeReader.readString(buffer));
+                    testBean.setName(BreezeReader.readString(buffer, true));
                     break;
             }
         });

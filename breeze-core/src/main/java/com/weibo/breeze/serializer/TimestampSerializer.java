@@ -19,10 +19,10 @@ public class TimestampSerializer implements Serializer<Timestamp> {
     @Override
     public Timestamp readFromBuf(BreezeBuffer buffer) throws BreezeException {
         Timestamp timestamp = new Timestamp(0);
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             switch (index) {
                 case 1:
-                    timestamp.setTime(BreezeReader.readInt64(buffer));
+                    timestamp.setTime(BreezeReader.readInt64(buffer, true));
                     break;
             }
         });

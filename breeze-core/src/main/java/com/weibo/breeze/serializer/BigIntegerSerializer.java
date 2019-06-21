@@ -19,10 +19,10 @@ public class BigIntegerSerializer implements Serializer<BigInteger> {
     @Override
     public BigInteger readFromBuf(BreezeBuffer buffer) throws BreezeException {
         BigInteger[] objects = new BigInteger[1];
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             switch (index) {
                 case 1:
-                    objects[0] = new BigInteger(BreezeReader.readString(buffer));
+                    objects[0] = new BigInteger(BreezeReader.readString(buffer, true));
                     break;
             }
         });

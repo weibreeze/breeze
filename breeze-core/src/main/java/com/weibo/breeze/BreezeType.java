@@ -5,8 +5,9 @@ package com.weibo.breeze;
  */
 @SuppressWarnings("all")
 public class BreezeType {
-    public static final int MAX_DIRECT_MESSAGE_TYPE_REF = 70;
+    public static final byte MAX_DIRECT_MESSAGE_TYPE_REF = 70;
 
+    // type define
     public static final byte NULL = 0;
     public static final byte TRUE = 1;
     public static final byte FALSE = 2;
@@ -27,4 +28,12 @@ public class BreezeType {
     public static final byte PACKED_ARRAY = 25;
 
     public static final byte TYPE_REF_MESSAGE = 30; //type number 31-100 is reserved for direct message type reference.
+
+    public byte type;
+    public String messageName;
+
+    public BreezeType(byte type, String messageName) {
+        this.type = type;
+        this.messageName = messageName;
+    }
 }

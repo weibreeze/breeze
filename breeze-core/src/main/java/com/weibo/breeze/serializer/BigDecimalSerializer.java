@@ -20,10 +20,10 @@ public class BigDecimalSerializer implements Serializer<BigDecimal> {
     @Override
     public BigDecimal readFromBuf(BreezeBuffer buffer) throws BreezeException {
         BigDecimal[] objects = new BigDecimal[1];
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             switch (index) {
                 case 1:
-                    objects[0] = new BigDecimal(BreezeReader.readString(buffer));
+                    objects[0] = new BigDecimal(BreezeReader.readString(buffer, true));
                     break;
             }
         });
