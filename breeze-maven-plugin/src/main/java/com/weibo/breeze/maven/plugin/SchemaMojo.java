@@ -1,3 +1,21 @@
+/*
+ *
+ *   Copyright 2019 Weibo, Inc.
+ *
+ *     Licensed under the Apache License, Version 2.0 (the "License");
+ *     you may not use this file except in compliance with the License.
+ *     You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     Unless required by applicable law or agreed to in writing, software
+ *     distributed under the License is distributed on an "AS IS" BASIS,
+ *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *     See the License for the specific language governing permissions and
+ *     limitations under the License.
+ *
+ */
+
 package com.weibo.breeze.maven.plugin;
 
 import com.weibo.breeze.Breeze;
@@ -33,7 +51,8 @@ import java.net.URL;
 import java.util.*;
 
 /**
- * Created by zhanglei28 on 2019/5/16.
+ * @author zhanglei28
+ * @date 2019/5/16.
  */
 @Mojo(
         name = "schema",
@@ -104,7 +123,7 @@ public class SchemaMojo extends AbstractMojo {
         Set<String> interfaces = new HashSet<>();
         List<File> list = FileUtils.getFiles(new File(xmlPath), includes, excludes);
         for (File file : list) {
-            Xpp3Dom dom = Xpp3DomBuilder.build(new FileInputStream(file), null); // inputstream always be closed by builder after build
+            Xpp3Dom dom = Xpp3DomBuilder.build(new FileInputStream(file), null); // input stream always be closed by builder after build
             Xpp3Dom[] referers = dom.getChildren("motan:referer");
             for (Xpp3Dom ref : referers) {
                 if (ref.getAttribute("interface") != null) {
@@ -384,9 +403,9 @@ public class SchemaMojo extends AbstractMojo {
 
     private void addField(Schema schema, Field field, int index, Set<String> addedFields) throws MojoFailureException {
         if (!addedFields.contains(field.getName())) {// skip duplicate filed, such as super class field.
-            Map<String, Class> associateClasse = new HashMap<>();
-            needProcess(field.getGenericType(), associateClasse);
-            for (Class clz : associateClasse.values()) {
+            Map<String, Class> associateClasses = new HashMap<>();
+            needProcess(field.getGenericType(), associateClasses);
+            for (Class clz : associateClasses.values()) {
                 generateSchema(clz);
             }
             try {

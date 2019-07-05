@@ -1,3 +1,21 @@
+/*
+ *
+ *   Copyright 2019 Weibo, Inc.
+ *
+ *     Licensed under the Apache License, Version 2.0 (the "License");
+ *     you may not use this file except in compliance with the License.
+ *     You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     Unless required by applicable law or agreed to in writing, software
+ *     distributed under the License is distributed on an "AS IS" BASIS,
+ *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *     See the License for the specific language governing permissions and
+ *     limitations under the License.
+ *
+ */
+
 package com.weibo.breeze.serializer;
 
 import com.weibo.breeze.*;
@@ -9,11 +27,13 @@ import java.lang.reflect.Modifier;
 import java.util.*;
 
 /**
- * Created by zhanglei28 on 2019/3/27.
+ * @author zhanglei28
+ * @date 2019/3/27.
  */
 @SuppressWarnings("unchecked")
 public class CommonSerializer<T> implements Serializer<T> {
     public static boolean WITH_STATIC_FIELD = false;
+    private String[] names;
     private Class<T> clz;
     private Method buildMethod;
     private Object buildObject;
@@ -65,6 +85,11 @@ public class CommonSerializer<T> implements Serializer<T> {
 
         this.clz = clz;
         cleanName = Breeze.getCleanName(clz.getName());
+        if (clz.getName().contains("$")) {
+            names = new String[]{cleanName, clz.getName()};
+        } else {
+            names = new String[]{cleanName};
+        }
     }
 
 
@@ -91,60 +116,11 @@ public class CommonSerializer<T> implements Serializer<T> {
         }
         this.schema = schema;
         cleanName = Breeze.getCleanName(clz.getName());
-    }
-
-    @Override
-    public void writeToBuf(Object obj, BreezeBuffer buffer) throws BreezeException {
-        BreezeWriter.writeMessage(buffer, cleanName, () -> {
-            Map<Integer, Schema.Field> fieldMap = schema.getFields();
-            for (Map.Entry<Integer, Schema.Field> entry : fieldMap.entrySet()) {
-                try {
-                    BreezeWriter.writeMessageField(buffer, entry.getKey(), entry.getValue().getFieldInstance(obj));
-                } catch (IllegalAccessException e) {
-                    throw new BreezeException("CommonSerializer write fail. e:" + e.getMessage());
-                }
-            }
-        });
-    }
-
-    @Override
-    public T readFromBuf(BreezeBuffer buffer) throws BreezeException {
-        T t = null;
-        if (buildMethod != null) {
-            try {
-                t = (T) buildMethod.invoke(buildObject);
-            } catch (ReflectiveOperationException e1) {
-            }
-        } else {
-            try {
-                t = clz.newInstance();
-            } catch (ReflectiveOperationException e) {
-            }
-        }
-        if (t == null) {
-            throw new BreezeException("CommonSerializer read fail. can not create default object. class:" + clz);
-        }
-        final T ft = t;
-        BreezeReader.readMessage(buffer, (int index) -> {
-            Schema.Field field = schema.getFieldByIndex(index);
-            if (field == null) { // ignore unknown fields
-                BreezeReader.readObject(buffer, Object.class);
-            }
-            try {
-                field.fill(ft, BreezeReader.readObjectByType(buffer, field.getGenericType(), null));
-            } catch (IllegalAccessException e) {
-                throw new BreezeException("CommonSerializer set field fail. e:" + e.getMessage());
-            }
-        });
-        return ft;
-    }
-
-    @Override
-    public String[] getNames() {
         if (clz.getName().contains("$")) {
-            return new String[]{cleanName, clz.getName()};
+            names = new String[]{cleanName, clz.getName()};
+        } else {
+            names = new String[]{cleanName};
         }
-        return new String[]{cleanName};
     }
 
     public static int getHash(String name) {
@@ -162,7 +138,6 @@ public class CommonSerializer<T> implements Serializer<T> {
         return list;
     }
 
-    //get field not only public
     private static Field getField(Class clz, String name) throws NoSuchFieldException {
         Field field;
         do {
@@ -174,6 +149,44 @@ public class CommonSerializer<T> implements Serializer<T> {
             clz = clz.getSuperclass();
         } while (clz != null && clz != Object.class);
         throw new NoSuchFieldException();
+    }
+
+    @Override
+    public void writeToBuf(Object obj, BreezeBuffer buffer) throws BreezeException {
+        BreezeWriter.writeMessage(buffer, () -> {
+            Map<Integer, Schema.Field> fieldMap = schema.getFields();
+            for (Map.Entry<Integer, Schema.Field> entry : fieldMap.entrySet()) {
+                entry.getValue().writeField(buffer, obj);
+            }
+        });
+    }
+
+    @Override
+    public T readFromBuf(BreezeBuffer buffer) throws BreezeException {
+        final T t;
+        try {
+            if (buildMethod != null) {
+                t = (T) buildMethod.invoke(buildObject);
+            } else {
+                t = clz.newInstance();
+            }
+        } catch (ReflectiveOperationException e1) {
+            throw new BreezeException("CommonSerializer read fail. can not create default object. class:" + clz);
+        }
+        BreezeReader.readMessage(buffer, (int index) -> {
+            Schema.Field field = schema.getFieldByIndex(index);
+            if (field == null) { // ignore unknown fields
+                BreezeReader.readObject(buffer, Object.class);
+                return;
+            }
+            field.readField(buffer, t);
+        });
+        return t;
+    }
+
+    @Override
+    public String[] getNames() {
+        return names;
     }
 
     private void checkClass(Class<T> clz) throws BreezeException {
@@ -198,9 +211,8 @@ public class CommonSerializer<T> implements Serializer<T> {
                         }
                     }
                 }
-            } catch (ReflectiveOperationException e1) {
+            } catch (ReflectiveOperationException ignore) {
             }
-            //TODO use default value
             throw new BreezeException("class must has constructor without arguments, or has builder like lombok.");
         }
     }
