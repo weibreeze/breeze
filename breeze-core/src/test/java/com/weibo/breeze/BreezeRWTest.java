@@ -12,6 +12,7 @@ import com.weibo.breeze.test.obj.TestObj;
 import com.weibo.breeze.test.obj.TestSubObj;
 import com.weibo.breeze.test.serializer.TestObjSerializer;
 import com.weibo.breeze.test.serializer.TestSubObjSerializer;
+import com.weibo.breeze.type.Types;
 import org.junit.Test;
 
 import java.lang.reflect.Array;
@@ -28,20 +29,29 @@ import static org.junit.Assert.*;
 @SuppressWarnings("all")
 public class BreezeRWTest {
 
+    protected static <T> T testSerialize(Object object, Class<T> clz) throws BreezeException {
+        BreezeBuffer buffer = new BreezeBuffer(256);
+        BreezeWriter.writeObject(buffer, object);
+        buffer.flip();
+        byte[] result = buffer.getBytes();
+        BreezeBuffer newBuffer = new BreezeBuffer(result);
+        return (T) BreezeReader.readObject(newBuffer, clz);
+    }
+
     @Test
     public void testBase() throws Exception {
         Object[][] objects = new Object[][]{
                 new Object[]{true, false, false, true},
-                new Object[]{"jklejroie", "873420983", "oiueeeeeeeeeeeeejjjjjjjjjjjjio2e3nlkf"},
+                new Object[]{"jklejroie", "873420983", "oiueeeeeeeeeeeeejjjjjjjjjjjjio2e3nlkjiofjeoiwuoejroiweurwoeijrwoeiruwejrwoierjoweroiwu389f"},
                 new Object[]{(short) 12, (short) -17, Short.MAX_VALUE, Short.MIN_VALUE},
-                new Object[]{1223, -3467, Integer.MAX_VALUE, Integer.MIN_VALUE},
-                new Object[]{122343l, -7898l, Long.MAX_VALUE, Long.MIN_VALUE},
+                new Object[]{1223, -3467, 12, -15, -16, 46, Integer.MAX_VALUE, Integer.MIN_VALUE},
+                new Object[]{122343l, -7898l, -7l, -8l, 14l, 15l, Long.MAX_VALUE, Long.MIN_VALUE},
                 new Object[]{122.343f, -78.98f, Float.MAX_VALUE, Float.MIN_VALUE},
                 new Object[]{12342.343d, -34578.98d, Double.MAX_VALUE, Double.MIN_VALUE},
                 new Object[]{(byte) 'x', (byte) 28, Byte.MAX_VALUE, Byte.MIN_VALUE},
                 new Object[]{'x', 'd'},
                 new Object[]{"x89798df".getBytes(), "usiodjfe".getBytes()},
-                new Object[]{new String[]{"sdjfkljf", "n,mnzcv", "erueoiwr"}, new Integer[]{12, 45, 7654, 5675}, new long[]{234l, 564l, 546435l}},
+                new Object[]{new String[]{"sdjfkljf", "n,mnzcv", "erueoiwr"}, new Integer[]{12, -13, 45, 7654, 5675}, new long[]{234l, -8l, 15l, 564l, 546435l}},
         };
         for (Object[] obj : objects) {
             testBase(obj);
@@ -141,7 +151,6 @@ public class BreezeRWTest {
         throw new RuntimeException("should not here");
     }
 
-
     private void testBase(Object[] expects) throws BreezeException {
         BreezeBuffer buf = new BreezeBuffer(64);
 
@@ -153,7 +162,7 @@ public class BreezeRWTest {
         for (Object o : expects) {
             if (o.getClass() == byte[].class) {
                 byte[] bytes1 = (byte[]) o;
-                byte[] bytes2 = BreezeReader.readObject(newBuf, byte[].class);
+                byte[] bytes2 = (byte[]) BreezeReader.readObject(newBuf, byte[].class);
                 assertArrayEquals(bytes1, bytes2);
             } else if (o.getClass().isArray()) {
                 if (o.getClass().getComponentType().isPrimitive()) {
@@ -169,16 +178,6 @@ public class BreezeRWTest {
             }
         }
     }
-
-    protected static <T> T testSerialize(Object object, Class<T> clz) throws BreezeException {
-        BreezeBuffer buffer = new BreezeBuffer(256);
-        BreezeWriter.writeObject(buffer, object);
-        buffer.flip();
-        byte[] result = buffer.getBytes();
-        BreezeBuffer newBuffer = new BreezeBuffer(result);
-        return BreezeReader.readObject(newBuffer, clz);
-    }
-
 
     public TestObj getDefaultTestObj() {
         TestObj testObj = new TestObj();
@@ -217,7 +216,7 @@ public class BreezeRWTest {
         testSubMsg.setMyInt(11);
         testSubMsg.setMyString("tsmmmmm");
         testSubMsg.setMyBool(true);
-        testSubMsg.setMyByte(BreezeType.MESSAGE);
+        testSubMsg.setMyByte(Types.MESSAGE);
         testSubMsg.setMyFloat64(23.456d);
         testSubMsg.setMyFloat32(3.1415f);
         testSubMsg.setMyBytes("xxxx".getBytes());

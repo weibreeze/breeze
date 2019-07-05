@@ -1,6 +1,6 @@
 /*
  *
- *   Copyright 2009-2016 Weibo, Inc.
+ *   Copyright 2019 Weibo, Inc.
  *
  *     Licensed under the Apache License, Version 2.0 (the "License");
  *     you may not use this file except in compliance with the License.
@@ -21,10 +21,26 @@ package com.weibo.breeze;
 import java.nio.ByteBuffer;
 
 /**
- * Created by zhanglei28 on 2017/6/27.
+ * @author zhanglei28
+ * @date 2017/6/27.
  */
 @SuppressWarnings("all")
 public class BreezeBuffer {
+
+    private ByteBuffer buf;
+    private BreezeContext context;
+
+    public BreezeBuffer(int initSize) {
+        this.buf = ByteBuffer.allocate(initSize);
+    }
+
+    public BreezeBuffer(ByteBuffer buf) {
+        this.buf = buf;
+    }
+
+    public BreezeBuffer(byte[] bytes) {
+        this.buf = ByteBuffer.wrap(bytes);
+    }
 
     public static int encodeZigzag32(int value) {
         return (value << 1) ^ (value >> 31);
@@ -42,21 +58,6 @@ public class BreezeBuffer {
         return (n >>> 1) ^ -(n & 1);
     }
 
-    private ByteBuffer buf;
-    private BreezeContext context;
-
-    public BreezeBuffer(int initSize) {
-        this.buf = ByteBuffer.allocate(initSize);
-    }
-
-    public BreezeBuffer(ByteBuffer buf) {
-        this.buf = buf;
-    }
-
-    public BreezeBuffer(byte[] bytes) {
-        this.buf = ByteBuffer.wrap(bytes);
-    }
-
     public void put(byte b) {
         ensureBufferEnough(1);
         buf.put(b);
@@ -71,7 +72,7 @@ public class BreezeBuffer {
         buf.put(b);
     }
 
-    public void put(byte[] b, int offset, int length){
+    public void put(byte[] b, int offset, int length) {
         ensureBufferEnough(b.length);
         buf.put(b, offset, length);
     }
@@ -144,13 +145,27 @@ public class BreezeBuffer {
         return count;
     }
 
-    public void putUTF8(String string){
-        putZigzag32(Utf8.encodedLength(string));
-        Utf8.encodeUtf8(string, buf);
+    public int getUTF8Length(String string) {
+        return Utf8.encodedLength(string);
     }
 
-    public String getUTF8() throws BreezeException {
-        int size = getZigzag32();
+    public void putUTF8(String string, int length, boolean putLength) {
+        if (putLength) {
+            putZigzag32(length);
+        }
+        if (length > 0) {
+            ensureBufferEnough(length);
+            Utf8.encodeUtf8(string, buf);
+        }
+    }
+
+    public String getUTF8(int size) throws BreezeException {
+        if (size < 0) {
+            size = getZigzag32();
+        }
+        if (size == 0) {
+            return "";
+        }
         if (size > buf.remaining()) {
             throw new BreezeException("Breeze deserialize utf8 string fail! buffer not enough!need size:" + size);
         }
@@ -176,7 +191,6 @@ public class BreezeBuffer {
      * this method always return a new copy of buf bytes.
      *
      * @return byte[] return a new byte array
-     *
      */
     public byte[] getBytes() {
         byte[] result = new byte[buf.remaining()];
