@@ -7,6 +7,8 @@ import com.weibo.breeze.BreezeWriter;
 import com.weibo.breeze.annotation.BreezeSerializer;
 import com.weibo.breeze.serializer.Serializer;
 
+import static com.weibo.breeze.type.Types.TYPE_STRING;
+
 /**
  * Created by zhanglei28 on 2019/4/1.
  */
@@ -15,7 +17,7 @@ public class TestSerializer implements Serializer<TestBean> {
 
     @Override
     public void writeToBuf(TestBean obj, BreezeBuffer buffer) throws BreezeException {
-        BreezeWriter.writeMessage(buffer, TestBean.class.getName(), () -> {
+        BreezeWriter.writeMessage(buffer, () -> {
             BreezeWriter.writeMessageField(buffer, 1, obj.getName());
         });
     }
@@ -23,10 +25,10 @@ public class TestSerializer implements Serializer<TestBean> {
     @Override
     public TestBean readFromBuf(BreezeBuffer buffer) throws BreezeException {
         TestBean testBean = new TestBean();
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             switch (index) {
                 case 1:
-                    testBean.setName(BreezeReader.readString(buffer));
+                    testBean.setName(TYPE_STRING.read(buffer));
                     break;
             }
         });

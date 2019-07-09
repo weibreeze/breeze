@@ -1,3 +1,21 @@
+/*
+ *
+ *   Copyright 2019 Weibo, Inc.
+ *
+ *     Licensed under the Apache License, Version 2.0 (the "License");
+ *     you may not use this file except in compliance with the License.
+ *     You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     Unless required by applicable law or agreed to in writing, software
+ *     distributed under the License is distributed on an "AS IS" BASIS,
+ *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *     See the License for the specific language governing permissions and
+ *     limitations under the License.
+ *
+ */
+
 package com.weibo.breeze.message;
 
 import com.weibo.breeze.BreezeBuffer;
@@ -8,8 +26,12 @@ import com.weibo.breeze.BreezeWriter;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.weibo.breeze.BreezeReader.readObject;
+import static com.weibo.breeze.BreezeWriter.writeObject;
+
 /**
- * Created by zhanglei28 on 2019/3/21.
+ * @author zhanglei28
+ * @date 2019/3/21.
  */
 public class GenericMessage implements Message {
     private Map<Integer, Object> fields = new HashMap<>();// field 0 is reserved for schema
@@ -38,13 +60,19 @@ public class GenericMessage implements Message {
 
     @Override
     public void writeToBuf(BreezeBuffer buffer) throws BreezeException {
-        BreezeWriter.writeMessage(buffer, getName(), getFields());
+        BreezeWriter.writeMessage(buffer, () -> {
+            for (Map.Entry<Integer, Object> entry : fields.entrySet()) {
+                if (entry.getValue() != null) {
+                    buffer.putZigzag32(entry.getKey());
+                    writeObject(buffer, entry.getValue());
+                }
+            }
+        });
     }
 
     @Override
     public GenericMessage readFromBuf(BreezeBuffer buffer) throws BreezeException {
-        BreezeReader.readFields(buffer, fields);
-        //TODO process schema if has field 0
+        BreezeReader.readMessage(buffer, (int index) -> fields.put(index, readObject(buffer, Object.class)));
         return this;
     }
 
@@ -57,14 +85,26 @@ public class GenericMessage implements Message {
         return name;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
     @Override
     public String getAlias() {
         return alias;
     }
 
+    public void setAlias(String alias) {
+        this.alias = alias;
+    }
+
     @Override
     public Schema getSchema() {
         return schema;
+    }
+
+    public void setSchema(Schema schema) {
+        this.schema = schema;
     }
 
     @Override
@@ -74,17 +114,5 @@ public class GenericMessage implements Message {
 
     public void putFields(Integer index, Object field) {
         fields.put(index, field);
-    }
-
-    public void setSchema(Schema schema) {
-        this.schema = schema;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setAlias(String alias) {
-        this.alias = alias;
     }
 }

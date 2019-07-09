@@ -1,6 +1,6 @@
 /*
  *
- *   Copyright 2009-2016 Weibo, Inc.
+ *   Copyright 2019 Weibo, Inc.
  *
  *     Licensed under the Apache License, Version 2.0 (the "License");
  *     you may not use this file except in compliance with the License.
@@ -19,14 +19,28 @@
 package com.weibo.breeze;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
- * Created by zhanglei28 on 2017/6/27.
+ * @author zhanglei28
+ * @date 2017/6/27.
  */
 @SuppressWarnings("all")
 public class BreezeBuffer {
+
+    private ByteBuffer buf;
+    private BreezeContext context;
+
+    public BreezeBuffer(int initSize) {
+        this.buf = ByteBuffer.allocate(initSize);
+    }
+
+    public BreezeBuffer(ByteBuffer buf) {
+        this.buf = buf;
+    }
+
+    public BreezeBuffer(byte[] bytes) {
+        this.buf = ByteBuffer.wrap(bytes);
+    }
 
     public static int encodeZigzag32(int value) {
         return (value << 1) ^ (value >> 31);
@@ -44,21 +58,6 @@ public class BreezeBuffer {
         return (n >>> 1) ^ -(n & 1);
     }
 
-    private ByteBuffer buf;
-    private WriteCountor writeCountor;
-
-    public BreezeBuffer(int initSize) {
-        this.buf = ByteBuffer.allocate(initSize);
-    }
-
-    public BreezeBuffer(ByteBuffer buf) {
-        this.buf = buf;
-    }
-
-    public BreezeBuffer(byte[] bytes) {
-        this.buf = ByteBuffer.wrap(bytes);
-    }
-
     public void put(byte b) {
         ensureBufferEnough(1);
         buf.put(b);
@@ -71,6 +70,11 @@ public class BreezeBuffer {
     public void put(byte[] b) {
         ensureBufferEnough(b.length);
         buf.put(b);
+    }
+
+    public void put(byte[] b, int offset, int length) {
+        ensureBufferEnough(b.length);
+        buf.put(b, offset, length);
     }
 
     public void putShort(short value) {
@@ -141,6 +145,35 @@ public class BreezeBuffer {
         return count;
     }
 
+    public int getUTF8Length(String string) {
+        return Utf8.encodedLength(string);
+    }
+
+    public void putUTF8(String string, int length, boolean putLength) {
+        if (putLength) {
+            putZigzag32(length);
+        }
+        if (length > 0) {
+            ensureBufferEnough(length);
+            Utf8.encodeUtf8(string, buf);
+        }
+    }
+
+    public String getUTF8(int size) throws BreezeException {
+        if (size < 0) {
+            size = getZigzag32();
+        }
+        if (size == 0) {
+            return "";
+        }
+        if (size > buf.remaining()) {
+            throw new BreezeException("Breeze deserialize utf8 string fail! buffer not enough!need size:" + size);
+        }
+        String result = Utf8.decodeUtf8(buf, buf.position(), size);
+        buf.position(buf.position() + size);
+        return result;
+    }
+
     public byte get() {
         return buf.get();
     }
@@ -157,7 +190,7 @@ public class BreezeBuffer {
      * get bytes remained in buf.
      * this method always return a new copy of buf bytes.
      *
-     * @return
+     * @return byte[] return a new byte array
      */
     public byte[] getBytes() {
         byte[] result = new byte[buf.remaining()];
@@ -258,13 +291,6 @@ public class BreezeBuffer {
         buf.clear();
     }
 
-    public int writeCount(int hash) {
-        if (writeCountor == null) {
-            writeCountor = new WriteCountor();
-        }
-        return writeCountor.put(hash);
-    }
-
     private ByteBuffer grow(int size) {
         ByteBuffer newbuf = ByteBuffer.allocate(size);
         newbuf.put(buf.array());
@@ -283,17 +309,10 @@ public class BreezeBuffer {
         }
     }
 
-    public static class WriteCountor {
-        private Map<Integer, Integer> map = new HashMap<>();
-
-        public int put(int hash) {
-            Integer count = map.get(hash);
-            if (count == null) {
-                count = 0;
-            }
-            count = count + 1;
-            map.put(hash, count);
-            return count;
+    public BreezeContext getContext() {
+        if (context == null) {
+            context = new BreezeContext();
         }
+        return context;
     }
 }

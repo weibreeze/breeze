@@ -1,3 +1,21 @@
+/*
+ *
+ *   Copyright 2019 Weibo, Inc.
+ *
+ *     Licensed under the Apache License, Version 2.0 (the "License");
+ *     you may not use this file except in compliance with the License.
+ *     You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     Unless required by applicable law or agreed to in writing, software
+ *     distributed under the License is distributed on an "AS IS" BASIS,
+ *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *     See the License for the specific language governing permissions and
+ *     limitations under the License.
+ *
+ */
+
 package com.weibo.breeze;
 
 import com.weibo.breeze.message.Schema;
@@ -13,7 +31,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Created by zhanglei28 on 2019/5/21.
+ * @author zhanglei28
+ * @date 2019/5/21.
  */
 public class SchemaUtil {
     private static Pattern fieldPattern = Pattern.compile("^([\\w<>., ]+) +(\\w+) *= *(\\d+) *;$");
@@ -22,7 +41,7 @@ public class SchemaUtil {
         try {
             Schema schema = new Schema();
             BufferedReader reader = new BufferedReader(new StringReader(content));
-            String packagenString = null;
+            String packageString = null;
             String line;
             boolean inMessage = false;
             boolean inEnum = false;
@@ -33,7 +52,7 @@ public class SchemaUtil {
                 }
                 line = line.trim();
                 if (line.startsWith("message ")) {
-                    schema.setName(packagenString + "." + getName(line, 8));
+                    schema.setName(packageString + "." + getName(line, 8));
                     inMessage = true;
                 } else if (inMessage) {
                     if (line.equals("{")) {
@@ -48,15 +67,15 @@ public class SchemaUtil {
                     }
                     schema.putField(Integer.parseInt(matcher.group(3)), matcher.group(2).trim(), matcher.group(1).trim());
                 } else if (line.startsWith("package ")) {
-                    if (packagenString == null) {
-                        packagenString = line.substring(8, line.length() - 1).trim();
+                    if (packageString == null) {
+                        packageString = line.substring(8, line.length() - 1).trim();
                     }
                 } else if (line.startsWith("option java_package")) {
-                    packagenString = line.substring(line.indexOf("=") + 1, line.length() - 1).trim();
+                    packageString = line.substring(line.indexOf("=") + 1, line.length() - 1).trim();
                 } else if (line.startsWith("option java_name")) {
                     schema.setJavaName(line.substring(line.indexOf("=") + 1, line.length() - 1).trim());
                 } else if (line.startsWith("enum ")) {
-                    schema.setName(packagenString + "." + getName(line, 5));
+                    schema.setName(packageString + "." + getName(line, 5));
                     inEnum = true;
                     schema.setEnum(true);
                 } else if (inEnum) {
@@ -73,7 +92,7 @@ public class SchemaUtil {
                     schema.addEnumValue(Integer.parseInt(strings[1].substring(0, strings[1].length() - 1).trim()), strings[0].trim());
                 }
             }
-        } catch (IOException e) {
+        } catch (IOException ignore) {
         }
         return null;
     }

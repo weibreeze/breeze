@@ -1,3 +1,21 @@
+/*
+ *
+ *   Copyright 2019 Weibo, Inc.
+ *
+ *     Licensed under the Apache License, Version 2.0 (the "License");
+ *     you may not use this file except in compliance with the License.
+ *     You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     Unless required by applicable law or agreed to in writing, software
+ *     distributed under the License is distributed on an "AS IS" BASIS,
+ *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *     See the License for the specific language governing permissions and
+ *     limitations under the License.
+ *
+ */
+
 package com.weibo.breeze.protobuf;
 
 import com.google.protobuf.Descriptors;
@@ -16,13 +34,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Created by zhanglei28 on 2019/4/1.
+ * @author zhanglei28
+ * @date 2019/4/1.
  */
 @SuppressWarnings("all")
 public class ProtobufSerializer<T extends Message> implements Serializer<T> {
-    private Message defaultInstance;
     String[] names;
     Map<Integer, Descriptors.FieldDescriptor> fields;
+    private Message defaultInstance;
 
     public ProtobufSerializer(Class<Message> clz) throws BreezeException {
         try {
@@ -40,7 +59,7 @@ public class ProtobufSerializer<T extends Message> implements Serializer<T> {
 
     @Override
     public void writeToBuf(Message obj, BreezeBuffer buffer) throws BreezeException {
-        BreezeWriter.writeMessage(buffer, obj.getClass().getName(), () -> {
+        BreezeWriter.writeMessage(buffer, () -> {
             for (Descriptors.FieldDescriptor field : obj.getDescriptorForType().getFields()) {
                 if (field.isOptional()
                         && field.getJavaType() == JavaType.MESSAGE
@@ -78,14 +97,14 @@ public class ProtobufSerializer<T extends Message> implements Serializer<T> {
     public T readFromBuf(BreezeBuffer buffer) throws BreezeException {
         Message.Builder builder = defaultInstance.newBuilderForType();
         BreezeException[] exception = new BreezeException[]{null};
-        BreezeReader.readMessage(buffer, true, (int index) -> {
+        BreezeReader.readMessage(buffer, (int index) -> {
             Descriptors.FieldDescriptor field = fields.get(index);
             if (field == null) {
                 exception[0] = new BreezeException(names[0] + " not have field. index:" + index);
                 return;
             }
             if (field.isMapField()) {
-                Map<?, ?> map = BreezeReader.readObject(buffer, HashMap.class);
+                Map<?, ?> map = (Map<?, ?>) BreezeReader.readObject(buffer, HashMap.class);
                 if (map != null && !map.isEmpty()) {
                     Descriptors.Descriptor type = field.getMessageType();
                     Descriptors.FieldDescriptor keyField = type.findFieldByName("key");
@@ -108,7 +127,7 @@ public class ProtobufSerializer<T extends Message> implements Serializer<T> {
                 return;
             }
             if (field.getJavaType() == JavaType.ENUM) {
-                int intValue = BreezeReader.readObject(buffer, Integer.class);
+                int intValue = (int) BreezeReader.readObject(buffer, Integer.class);
                 Descriptors.EnumValueDescriptor result;
                 if (field.getEnumType().getFile().getSyntax() == Descriptors.FileDescriptor.Syntax.PROTO3) {
                     result = field.getEnumType().findValueByNumberCreatingIfUnknown(intValue);
