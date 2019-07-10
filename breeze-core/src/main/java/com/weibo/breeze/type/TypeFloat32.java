@@ -75,7 +75,7 @@ public class TypeFloat32 implements BreezeType<Float> {
             if (checkDefault && field == 0f) {
                 return;
             }
-            buffer.putZigzag32(index);
+            buffer.putVarint(index);
             write(buffer, field, withType);
         }
     }

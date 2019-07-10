@@ -63,7 +63,7 @@ public class GenericMessage implements Message {
         BreezeWriter.writeMessage(buffer, () -> {
             for (Map.Entry<Integer, Object> entry : fields.entrySet()) {
                 if (entry.getValue() != null) {
-                    buffer.putZigzag32(entry.getKey());
+                    buffer.putVarint(entry.getKey());
                     writeObject(buffer, entry.getValue());
                 }
             }

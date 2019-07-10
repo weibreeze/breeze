@@ -33,7 +33,7 @@ import java.util.*;
 @SuppressWarnings("unchecked")
 public class CommonSerializer<T> implements Serializer<T> {
     public static boolean WITH_STATIC_FIELD = false;
-    private static String[] names;
+    private String[] names;
     private Class<T> clz;
     private Method buildMethod;
     private Object buildObject;

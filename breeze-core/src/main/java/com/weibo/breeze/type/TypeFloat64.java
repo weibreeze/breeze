@@ -75,7 +75,7 @@ public class TypeFloat64 implements BreezeType<Double> {
             if (checkDefault && field == 0d) {
                 return;
             }
-            buffer.putZigzag32(index);
+            buffer.putVarint(index);
             write(buffer, field, withType);
         }
     }

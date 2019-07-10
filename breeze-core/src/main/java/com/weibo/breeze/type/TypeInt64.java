@@ -83,7 +83,7 @@ public class TypeInt64 implements BreezeType<Long> {
             if (checkDefault && field == 0) {
                 return;
             }
-            buffer.putZigzag32(index);
+            buffer.putVarint(index);
             write(buffer, field, withType);
         }
     }

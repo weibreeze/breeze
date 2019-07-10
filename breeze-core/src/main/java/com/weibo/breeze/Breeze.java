@@ -196,7 +196,11 @@ public class Breeze {
 
         if (Map.class.isAssignableFrom(clz)) {
             if (pt != null && pt.getActualTypeArguments().length == 2) {
-                return new TypePackedMap(pt.getActualTypeArguments()[0], pt.getActualTypeArguments()[1]);
+                try {
+                    return new TypePackedMap(pt.getActualTypeArguments()[0], pt.getActualTypeArguments()[1]);
+                } catch (BreezeException e) {
+                    return TYPE_MAP;
+                }
             }
             if (BreezeWriter.IS_PACK) {
                 return new TypePackedMap();
@@ -206,7 +210,11 @@ public class Breeze {
 
         if (Collection.class.isAssignableFrom(clz)) {
             if (pt != null && pt.getActualTypeArguments().length == 1) {
-                return new TypePackedArray(pt.getActualTypeArguments()[0]);
+                try {
+                    return new TypePackedArray(pt.getActualTypeArguments()[0]);
+                } catch (BreezeException e) {
+                    return TYPE_ARRAY;
+                }
             }
             if (BreezeWriter.IS_PACK) {
                 return new TypePackedArray();

@@ -64,7 +64,7 @@ public class TypeBool implements BreezeType<Boolean> {
     public void writeMessageField(BreezeBuffer buffer, int index, Boolean field, boolean withType, boolean checkDefault) throws BreezeException {
         if (field != null) {
             if (field) {
-                buffer.putZigzag32(index);
+                buffer.putVarint(index);
                 write(buffer, field, withType);
             }
         }

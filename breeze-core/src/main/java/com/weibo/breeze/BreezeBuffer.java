@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
  */
 @SuppressWarnings("all")
 public class BreezeBuffer {
+    private static final int MAX_VARINT_LENGTH = 10;
 
     private ByteBuffer buf;
     private BreezeContext context;
@@ -131,14 +132,15 @@ public class BreezeBuffer {
     }
 
     public int putVarint(long value) {
+        ensureBufferEnough(MAX_VARINT_LENGTH);
         int count = 0;
         while (true) {
             count++;
             if ((value & ~0x7fL) == 0) {
-                put((byte) value);
+                buf.put((byte) value);
                 break;
             } else {
-                put((byte) ((value & 0x7f) | 0x80));
+                buf.put((byte) ((value & 0x7f) | 0x80));
                 value >>>= 7;
             }
         }
@@ -151,7 +153,7 @@ public class BreezeBuffer {
 
     public void putUTF8(String string, int length, boolean putLength) {
         if (putLength) {
-            putZigzag32(length);
+            putVarint(length);
         }
         if (length > 0) {
             ensureBufferEnough(length);
@@ -161,7 +163,7 @@ public class BreezeBuffer {
 
     public String getUTF8(int size) throws BreezeException {
         if (size < 0) {
-            size = getZigzag32();
+            size = (int) getVarint();
         }
         if (size == 0) {
             return "";

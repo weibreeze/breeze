@@ -37,8 +37,8 @@ import static com.weibo.breeze.type.Types.*;
  * @date 2019/3/21.
  */
 public class BreezeWriter {
-    static int MAX_WRITE_COUNT = 10; // default not check circular reference.
-    static boolean IS_PACK = true;
+    public static int MAX_WRITE_COUNT = 10; // default not check circular reference.
+    public static boolean IS_PACK = true;
 
     public static void writeString(BreezeBuffer buffer, String str) throws BreezeException {
         TYPE_STRING.write(buffer, str);
@@ -89,7 +89,7 @@ public class BreezeWriter {
 
     public static void writeMessageField(BreezeBuffer buffer, Integer index, Object field) throws BreezeException {
         if (field != null) {
-            buffer.putZigzag32(index);
+            buffer.putVarint(index);
             writeObject(buffer, field);
         }
     }
@@ -238,7 +238,7 @@ public class BreezeWriter {
         } else {
             if (index > DIRECT_REF_MESSAGE_MAX_VALUE) {// over direct type ref
                 buffer.put(REF_MESSAGE);
-                buffer.putZigzag32(index);
+                buffer.putVarint(index);
             } else {
                 buffer.put((byte) (REF_MESSAGE + index));
             }

@@ -50,7 +50,7 @@ public interface BreezeType<T> {
 
     default void writeMessageField(BreezeBuffer buffer, int index, T field, boolean withType, boolean checkDefault) throws BreezeException {
         if (field != null) {
-            buffer.putZigzag32(index);
+            buffer.putVarint(index);
             write(buffer, field, withType);
         }
     }

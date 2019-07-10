@@ -114,7 +114,7 @@ public class BreezeReader {
         int endPos = startPos + size;
         int index;
         while (buffer.position() < endPos) {
-            index = buffer.getZigzag32();
+            index = (int) buffer.getVarint();
             readField.readIndexField(index);
         }
         if (buffer.position() != endPos) {
@@ -449,7 +449,7 @@ public class BreezeReader {
         if (type == MESSAGE) {
             buffer.getContext().putMessageType(TYPE_STRING.readString(buffer));
         } else if (type == REF_MESSAGE) {
-            buffer.getZigzag32();
+            buffer.getVarint();
         }
     }
 
@@ -530,7 +530,7 @@ public class BreezeReader {
             name = TYPE_STRING.readString(buffer);
             buffer.getContext().putMessageType(name);
         } else if (typeByte == REF_MESSAGE) {
-            index = buffer.getZigzag32();
+            index = (int) buffer.getVarint();
         } else if (typeByte > REF_MESSAGE && typeByte <= DIRECT_REF_MESSAGE_MAX_TYPE) {
             index = typeByte - REF_MESSAGE;
         } else {

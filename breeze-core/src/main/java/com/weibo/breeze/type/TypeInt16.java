@@ -73,7 +73,7 @@ public class TypeInt16 implements BreezeType<Short> {
             if (checkDefault && field == 0) {
                 return;
             }
-            buffer.putZigzag32(index);
+            buffer.putVarint(index);
             write(buffer, field, withType);
         }
     }
