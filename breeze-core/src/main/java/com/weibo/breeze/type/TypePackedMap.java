@@ -45,7 +45,7 @@ public class TypePackedMap implements BreezeType<Map<?, ?>> {
 
     public TypePackedMap(Type kType, Type vType) throws BreezeException {
         if (kType == null || vType == null) {
-            throw new BreezeException("key type add value type must not null in TypeMap");
+            throw new BreezeException("key type add value type must not null in TypePackedMap");
         }
         this.kType = kType;
         this.vType = vType;
@@ -65,55 +65,52 @@ public class TypePackedMap implements BreezeType<Map<?, ?>> {
     @Override
     @SuppressWarnings("unchecked")
     public Map<?, ?> read(BreezeBuffer buffer, boolean withType) throws BreezeException {
-        Map map = new HashMap();
-        read(buffer, map, kType, vType, withType);
-        return map;
+        return read(buffer, null, kType, vType, withType);
     }
 
     // used for read object, key type maybe null.
     @SuppressWarnings("unchecked")
-    public <T, K> void read(BreezeBuffer buffer, Map<T, K> map, Type kType, Type vType, boolean withType) throws BreezeException {
+    public <T, K> Map<T, K> read(BreezeBuffer buffer, Map<T, K> map, Type kType, Type vType, boolean withType) throws BreezeException {
         byte type = PACKED_MAP;
         if (withType) {
             type = buffer.get();
             if (type == NULL) {
-                return;
+                return null;
             }
             if (type != PACKED_MAP && type != MAP) {
                 throw new BreezeException("unsupported by TypePackedMap. type:" + type);
             }
         }
-        int size = getAndCheckSize(buffer);
-        if (size != 0) {
-            int startPos = buffer.position();
-            int endPos = startPos + size;
-            if (type == PACKED_MAP) {
-                if (keyType == null) {
-                    keyType = readBreezeType(buffer, kType);
-                    valueType = readBreezeType(buffer, vType);
-                } else {
-                    skipType(buffer); // need check?
-                    skipType(buffer);
-                }
-                while (buffer.position() < endPos) {
-                    map.put((T) keyType.read(buffer, false), (K) valueType.read(buffer, false));
-                }
-            } else { // compatible with normal map.
-                if (keyType != null) {
-                    while (buffer.position() < endPos) {
-                        map.put((T) keyType.read(buffer), (K) valueType.read(buffer));
-                    }
-                } else {
-                    while (buffer.position() < endPos) {
-                        map.put((T) readObjectByType(buffer, kType), (K) readObjectByType(buffer, vType));
-                    }
-                }
+        int size = (int) buffer.getVarint();
+        if (map == null) {
+            map = new HashMap(TypeMap.calculateInitSize(size));
+        }
+        if (size == 0) {
+            return map;
+        }
+        if (type == PACKED_MAP) {
+            if (keyType == null) {
+                keyType = readBreezeType(buffer, kType);
+                valueType = readBreezeType(buffer, vType);
+            } else {
+                skipType(buffer); // need check?
+                skipType(buffer);
             }
-
-            if (buffer.position() != endPos) {
-                throw new BreezeException("Breeze deserialize wrong map size, except: " + size + " actual: " + (buffer.position() - startPos));
+            for (int i = 0; i < size; i++) {
+                map.put((T) keyType.read(buffer, false), (K) valueType.read(buffer, false));
+            }
+        } else { // compatible with normal map.
+            if (keyType != null) {
+                for (int i = 0; i < size; i++) {
+                    map.put((T) keyType.read(buffer), (K) valueType.read(buffer));
+                }
+            } else {
+                for (int i = 0; i < size; i++) {
+                    map.put((T) readObjectByType(buffer, kType), (K) readObjectByType(buffer, vType));
+                }
             }
         }
+        return map;
     }
 
     @Override
@@ -123,19 +120,18 @@ public class TypePackedMap implements BreezeType<Map<?, ?>> {
         if (withType) {
             buffer.put(PACKED_MAP);
         }
-        if (value.isEmpty()) {
-            buffer.putInt(0);
+        int size = value.size();
+        buffer.putVarint(size);
+        if (size == 0) {
             return;
         }
-        int pos = buffer.position();
-        buffer.position(pos + 4);
         if (keyType != null) {
             keyType.putType(buffer);
             valueType.putType(buffer);
         }
         for (Map.Entry<?, ?> entry : value.entrySet()) {
             if (entry.getKey() == null || entry.getValue() == null) {
-                continue;
+                throw new BreezeException("not support null value in breeze packed map. key:" + entry.getKey() + ", value:" + entry.getValue());
             }
             if (keyType == null) {
                 keyType = Breeze.getBreezeType(entry.getKey().getClass());
@@ -146,10 +142,6 @@ public class TypePackedMap implements BreezeType<Map<?, ?>> {
             keyType.write(buffer, entry.getKey(), false);
             valueType.write(buffer, entry.getValue(), false);
         }
-        int newPos = buffer.position();
-        buffer.position(pos);
-        buffer.putInt(newPos - pos - 4);
-        buffer.position(newPos);
     }
 
 }

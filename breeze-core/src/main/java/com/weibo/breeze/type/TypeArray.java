@@ -18,6 +18,7 @@
 
 package com.weibo.breeze.type;
 
+import com.weibo.breeze.Breeze;
 import com.weibo.breeze.BreezeBuffer;
 import com.weibo.breeze.BreezeException;
 
@@ -26,12 +27,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import static com.weibo.breeze.BreezeReader.getAndCheckSize;
 import static com.weibo.breeze.BreezeReader.readObjectByType;
 import static com.weibo.breeze.BreezeWriter.checkWriteCount;
 import static com.weibo.breeze.BreezeWriter.writeObject;
-import static com.weibo.breeze.type.Types.ARRAY;
-import static com.weibo.breeze.type.Types.NULL;
+import static com.weibo.breeze.type.Types.*;
 
 /**
  * @author zhanglei28
@@ -59,32 +58,35 @@ public class TypeArray implements BreezeType<List<?>> {
     @Override
     @SuppressWarnings("unchecked")
     public List<?> read(BreezeBuffer buffer, boolean withType) throws BreezeException {
-        List list = new ArrayList();
-        read(buffer, list, vType, withType);
-        return list;
-    }
-
-    @SuppressWarnings("unchecked")
-    public <T> void read(BreezeBuffer buffer, Collection<T> collection, Type vType, boolean withType) throws BreezeException {
         if (withType) {
             byte type = buffer.get();
             if (type == NULL) {
-                return;
+                return null;
+            }
+            if (type == PACKED_ARRAY) {
+                return new TypePackedArray().read(buffer, false);
             }
             if (type != ARRAY) {
                 throw new BreezeException("unsupported by TypeArray. type:" + type);
             }
         }
-        int size = getAndCheckSize(buffer);
-        if (size != 0) {
-            int startPos = buffer.position();
-            int endPos = startPos + size;
-            while (buffer.position() < endPos) {
-                collection.add((T) readObjectByType(buffer, vType));
-            }
-            if (buffer.position() != endPos) {
-                throw new BreezeException("Breeze deserialize wrong array size, except: " + size + " actual: " + (buffer.position() - startPos));
-            }
+        int size = (int) buffer.getVarint();
+        if (size > Breeze.MAX_ELEM_SIZE) {
+            throw new BreezeException("breeze array size over limit. size" + size);
+        }
+        List list = new ArrayList(size);
+        readBySize(buffer, list, vType, size);
+        return list;
+    }
+
+    // read collection elements by size
+    @SuppressWarnings("unchecked")
+    public <T> void readBySize(BreezeBuffer buffer, Collection<T> collection, Type vType, int size) throws BreezeException {
+        if (size == 0) {
+            return;
+        }
+        for (int i = 0; i < size; i++) {
+            collection.add((T) readObjectByType(buffer, vType));
         }
     }
 
@@ -98,19 +100,14 @@ public class TypeArray implements BreezeType<List<?>> {
         if (withType) {
             buffer.put(ARRAY);
         }
-        if (value.isEmpty()) {
-            buffer.putInt(0);
+        int size = value.size();
+        buffer.putVarint(size);
+        if (size == 0) {
             return;
         }
-        int pos = buffer.position();
-        buffer.position(pos + 4);
         for (Object v : value) {
             writeObject(buffer, v);
         }
-        int newPos = buffer.position();
-        buffer.position(pos);
-        buffer.putInt(newPos - pos - 4);
-        buffer.position(newPos);
     }
 
     public void writeArray(BreezeBuffer buffer, Object[] value, boolean withType) throws BreezeException {
@@ -118,19 +115,13 @@ public class TypeArray implements BreezeType<List<?>> {
         if (withType) {
             buffer.put(ARRAY);
         }
+        buffer.putVarint(value.length);
         if (value.length == 0) {
-            buffer.putInt(0);
             return;
         }
-        int pos = buffer.position();
-        buffer.position(pos + 4);
         for (Object v : value) {
             writeObject(buffer, v);
         }
-        int newPos = buffer.position();
-        buffer.position(pos);
-        buffer.putInt(newPos - pos - 4);
-        buffer.position(newPos);
     }
 
 }

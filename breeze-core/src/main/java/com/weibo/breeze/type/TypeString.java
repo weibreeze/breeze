@@ -53,7 +53,7 @@ public class TypeString implements BreezeType<String> {
         }
         byte type = buffer.get();
         // direct string
-        if (type >= DIRECT_STRING_MIN_TYPE || type <= DIRECT_STRING_MAX_TYPE) {
+        if (type >= DIRECT_STRING_MIN_TYPE && type <= DIRECT_STRING_MAX_TYPE) {
             return buffer.getUTF8(type);
         }
         // compatible for some types

@@ -23,10 +23,7 @@ import com.weibo.breeze.message.Message;
 import com.weibo.breeze.message.Schema;
 import com.weibo.breeze.serializer.CommonSerializer;
 import com.weibo.breeze.serializer.Serializer;
-import com.weibo.breeze.type.BreezeType;
-import com.weibo.breeze.type.TypeMessage;
-import com.weibo.breeze.type.TypePackedArray;
-import com.weibo.breeze.type.TypePackedMap;
+import com.weibo.breeze.type.*;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Array;
@@ -93,7 +90,8 @@ public class BreezeReader {
         if (type != ARRAY && type != PACKED_ARRAY) {
             throw new BreezeException("cannot read to collection. type:" + type);
         }
-        readCollectionWithoutType(buffer, collection, valueType, type == PACKED_ARRAY);
+        int size = (int) buffer.getVarint();
+        readCollectionWithoutType(buffer, collection, valueType, size, type == PACKED_ARRAY);
     }
 
     public static Message readMessage(BreezeBuffer buffer, Class<? extends Message> clz) throws BreezeException {
@@ -195,7 +193,7 @@ public class BreezeReader {
         }
 
         // message
-        if (bType == MESSAGE || (bType >= REF_MESSAGE && bType <= DIRECT_REF_MESSAGE_MAX_TYPE)) {
+        if (bType >= MESSAGE && bType <= DIRECT_REF_MESSAGE_MAX_TYPE) {
             String name = readMessageName(buffer, bType);
             if (Message.class.isAssignableFrom(clz)) {
                 return readMessageWithoutType(buffer, (Class<Message>) clz, name);
@@ -251,9 +249,7 @@ public class BreezeReader {
                 }
                 if (clz.isAssignableFrom(HashMap.class)) {
                     // contain Object, Map
-                    Map map = new HashMap<>();
-                    readMapWithoutType(buffer, map, keyType, valueType, bType == PACKED_MAP);
-                    return map;
+                    return readMapWithoutType(buffer, null, keyType, valueType, bType == PACKED_MAP);
                 }
                 if (!clz.isInterface() && Map.class.isAssignableFrom(clz)) {
                     Map map = null;
@@ -273,9 +269,13 @@ public class BreezeReader {
                 if (pt != null && pt.getActualTypeArguments().length == 1) {
                     valueType = pt.getActualTypeArguments()[0];
                 }
+                int size = (int) buffer.getVarint();
+                if (size > Breeze.MAX_ELEM_SIZE) {
+                    throw new BreezeException("breeze array size over limit. size" + size);
+                }
                 if (clz.isArray()) {
-                    List list = new ArrayList();
-                    readCollectionWithoutType(buffer, list, clz.getComponentType(), bType == PACKED_ARRAY);
+                    List list = new ArrayList(size);
+                    readCollectionWithoutType(buffer, list, clz.getComponentType(), size, bType == PACKED_ARRAY);
                     Object objects = Array.newInstance(clz.getComponentType(), list.size());
                     for (int i = 0; i < list.size(); i++) {
                         Array.set(objects, i, list.get(i));
@@ -283,13 +283,13 @@ public class BreezeReader {
                     return objects;
                 }
                 if (clz.isAssignableFrom(ArrayList.class)) {
-                    List list = new ArrayList();
-                    readCollectionWithoutType(buffer, list, valueType, bType == PACKED_ARRAY);
+                    List list = new ArrayList(size);
+                    readCollectionWithoutType(buffer, list, valueType, size, bType == PACKED_ARRAY);
                     return list;
                 }
                 if (clz.isAssignableFrom(HashSet.class)) {
-                    HashSet hs = new HashSet();
-                    readCollectionWithoutType(buffer, hs, valueType, bType == PACKED_ARRAY);
+                    HashSet hs = new HashSet(TypeMap.calculateInitSize(size));
+                    readCollectionWithoutType(buffer, hs, valueType, size, bType == PACKED_ARRAY);
                     return hs;
                 }
                 if (!clz.isInterface() && Collection.class.isAssignableFrom(clz)) {
@@ -299,7 +299,7 @@ public class BreezeReader {
                     } catch (Exception ignore) {
                     }
                     if (collection != null) {
-                        readCollectionWithoutType(buffer, collection, valueType, bType == PACKED_ARRAY);
+                        readCollectionWithoutType(buffer, collection, valueType, size, bType == PACKED_ARRAY);
                         return collection;
                     }
                 }
@@ -406,19 +406,19 @@ public class BreezeReader {
         throw new BreezeException("can not convert number to class:" + clz);
     }
 
-    private static <T, K> void readMapWithoutType(BreezeBuffer buffer, Map<T, K> map, Type keyType, Type valueType, boolean isPacked) throws BreezeException {
+    private static <T, K> Map<T, K> readMapWithoutType(BreezeBuffer buffer, Map<T, K> map, Type keyType, Type valueType, boolean isPacked) throws BreezeException {
         if (isPacked) {
-            new TypePackedMap().read(buffer, map, keyType, valueType, false);
+            return new TypePackedMap().read(buffer, map, keyType, valueType, false);
         } else {
-            TYPE_MAP.read(buffer, map, keyType, valueType, false);
+            return TYPE_MAP.read(buffer, map, keyType, valueType, false);
         }
     }
 
-    private static <T> void readCollectionWithoutType(BreezeBuffer buffer, Collection<T> collection, Type type, boolean isPacked) throws BreezeException {
+    private static <T> void readCollectionWithoutType(BreezeBuffer buffer, Collection<T> collection, Type type, int size, boolean isPacked) throws BreezeException {
         if (isPacked) {
-            new TypePackedArray().read(buffer, collection, type, false);
+            new TypePackedArray().readBySize(buffer, collection, type, size, true);
         } else {
-            TYPE_ARRAY.read(buffer, collection, type, false);
+            TYPE_ARRAY.readBySize(buffer, collection, type, size);
         }
     }
 
