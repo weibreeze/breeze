@@ -22,10 +22,7 @@ import com.weibo.breeze.message.Message;
 import com.weibo.breeze.message.Schema;
 import com.weibo.breeze.message.SchemaDesc;
 import com.weibo.breeze.serializer.*;
-import com.weibo.breeze.type.BreezeType;
-import com.weibo.breeze.type.TypeMessage;
-import com.weibo.breeze.type.TypePackedArray;
-import com.weibo.breeze.type.TypePackedMap;
+import com.weibo.breeze.type.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,9 +39,9 @@ import static com.weibo.breeze.type.Types.*;
  */
 public class Breeze {
     public static final String BREEZE_SERIALIZER_SUFFIX = "BreezeSerializer";
-
     private static final Logger logger = LoggerFactory.getLogger(Breeze.class);
     private static final ThreadLocal<Set<String>> GET_SERIALIZER_SET = ThreadLocal.withInitial(HashSet::new);
+    public static int MAX_ELEM_SIZE = 100000;
     private static SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private static ConcurrentHashMap<String, Message> messageInstanceMap = new ConcurrentHashMap<>(128);
     private static Serializer[] defaultSerializers = new Serializer[]{
@@ -253,8 +250,8 @@ public class Breeze {
         }
 
         if (GET_SERIALIZER_SET.get().contains(clz.getName())) {
-            logger.warn("circular get serializer. class:" + clz.getName());
-            return null;
+            // circular get serializer, will replaced later
+            return new TypePlaceHolder(clz);
         }
         try {
             GET_SERIALIZER_SET.get().add(clz.getName());

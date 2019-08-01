@@ -18,6 +18,7 @@
 
 package com.weibo.breeze.type;
 
+import com.weibo.breeze.Breeze;
 import com.weibo.breeze.BreezeBuffer;
 import com.weibo.breeze.BreezeException;
 
@@ -25,12 +26,10 @@ import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.weibo.breeze.BreezeReader.getAndCheckSize;
 import static com.weibo.breeze.BreezeReader.readObjectByType;
 import static com.weibo.breeze.BreezeWriter.checkWriteCount;
 import static com.weibo.breeze.BreezeWriter.writeObject;
-import static com.weibo.breeze.type.Types.MAP;
-import static com.weibo.breeze.type.Types.NULL;
+import static com.weibo.breeze.type.Types.*;
 
 /**
  * @author zhanglei28
@@ -53,6 +52,16 @@ public class TypeMap implements BreezeType<Map<?, ?>> {
         this.vType = vType;
     }
 
+    public static int calculateInitSize(int size) throws BreezeException {
+        if (size <= 10) {
+            return 16;
+        }
+        if (size > Breeze.MAX_ELEM_SIZE) {
+            throw new BreezeException("breeze map size over limit. size" + size);
+        }
+        return (int) (size / 0.75) + 1;
+    }
+
     @Override
     public byte getType() {
         return MAP;
@@ -61,35 +70,34 @@ public class TypeMap implements BreezeType<Map<?, ?>> {
     @Override
     @SuppressWarnings("unchecked")
     public Map read(BreezeBuffer buffer, boolean withType) throws BreezeException {
-        Map map = new HashMap();
-        read(buffer, map, kType, vType, withType);
-        return map;
+        return read(buffer, null, kType, vType, withType);
     }
 
     @SuppressWarnings("unchecked")
-    public <T, K> void read(BreezeBuffer buffer, Map<T, K> map, Type kType, Type vType, boolean withType) throws BreezeException {
+    public <T, K> Map<T, K> read(BreezeBuffer buffer, Map<T, K> map, Type kType, Type vType, boolean withType) throws BreezeException {
         if (withType) {
             byte type = buffer.get();
             if (type == NULL) {
-                return;
+                return null;
+            }
+            if (type == PACKED_MAP) {
+                return new TypePackedMap().read(buffer, map, kType, vType, false);
             }
             if (type != MAP) {
                 throw new BreezeException("unsupported by TypeMap. type:" + type);
             }
         }
-
-        int size = getAndCheckSize(buffer);
-        if (size != 0) {
-            int startPos = buffer.position();
-            int endPos = startPos + size;
-            while (buffer.position() < endPos) {
-                map.put((T) readObjectByType(buffer, kType), (K) readObjectByType(buffer, vType));
-            }
-
-            if (buffer.position() != endPos) {
-                throw new BreezeException("Breeze deserialize wrong map size, except: " + size + " actual: " + (buffer.position() - startPos));
-            }
+        int size = (int) buffer.getVarint();
+        if (map == null) {
+            map = new HashMap(calculateInitSize(size));
         }
+        if (size == 0) {
+            return map;
+        }
+        for (int i = 0; i < size; i++) {
+            map.put((T) readObjectByType(buffer, kType), (K) readObjectByType(buffer, vType));
+        }
+        return map;
     }
 
     @Override
@@ -98,23 +106,14 @@ public class TypeMap implements BreezeType<Map<?, ?>> {
         if (withType) {
             buffer.put(MAP);
         }
-        if (value.isEmpty()) {
-            buffer.putInt(0);
+        int size = value.size();
+        buffer.putVarint(size);
+        if (size == 0) {
             return;
         }
-        int pos = buffer.position();
-        buffer.position(pos + 4);
         for (Map.Entry<?, ?> entry : value.entrySet()) {
-            if (entry.getKey() == null || entry.getValue() == null) {
-                continue;
-            }
             writeObject(buffer, entry.getKey());
             writeObject(buffer, entry.getValue());
         }
-        int newPos = buffer.position();
-        buffer.position(pos);
-        buffer.putInt(newPos - pos - 4);
-        buffer.position(newPos);
     }
-
 }

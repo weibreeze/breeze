@@ -21,7 +21,6 @@ package com.weibo.breeze.type;
 import com.weibo.breeze.Breeze;
 import com.weibo.breeze.BreezeBuffer;
 import com.weibo.breeze.BreezeException;
-import com.weibo.breeze.BreezeReader;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -45,12 +44,12 @@ public class TypePackedArray implements BreezeType<List<?>> {
 
     public TypePackedArray(Type type) throws BreezeException {
         if (type == null) {
-            throw new BreezeException("value type must not null in TypeArray");
+            throw new BreezeException("value type must not null in TypePackedArray");
         }
         this.vType = type;
         this.valueType = Breeze.getBreezeType(type);
         if (valueType == null) {
-            throw new BreezeException("value type must not null in TypePacked Array");
+            throw new BreezeException("value type must not null in TypePackedArray");
         }
     }
 
@@ -62,49 +61,48 @@ public class TypePackedArray implements BreezeType<List<?>> {
     @Override
     @SuppressWarnings("unchecked")
     public List<?> read(BreezeBuffer buffer, boolean withType) throws BreezeException {
-        List list = new ArrayList();
-        read(buffer, list, vType, withType);
-        return list;
-    }
-
-    @SuppressWarnings("unchecked")
-    public <T> void read(BreezeBuffer buffer, Collection<T> collection, Type vType, boolean withType) throws BreezeException {
         byte type = PACKED_ARRAY;
         if (withType) {
             type = buffer.get();
             if (type == NULL) {
-                return;
+                return null;
             }
             if (type != PACKED_ARRAY && type != ARRAY) {
                 throw new BreezeException("unsupported by TypePackedArray. type:" + type);
             }
         }
-        int size = BreezeReader.getAndCheckSize(buffer);
-        if (size != 0) {
-            int startPos = buffer.position();
-            int endPos = startPos + size;
-            if (type == PACKED_ARRAY) {
-                if (valueType == null) {
-                    valueType = readBreezeType(buffer, vType);
-                } else {
-                    skipType(buffer); // need check?
-                }
-                while (buffer.position() < endPos) {
-                    collection.add((T) valueType.read(buffer, false));
+        int size = (int) buffer.getVarint();
+        if (size > Breeze.MAX_ELEM_SIZE) {
+            throw new BreezeException("breeze array size over limit. size" + size);
+        }
+        List list = new ArrayList(size);
+        readBySize(buffer, list, vType, size, type == PACKED_ARRAY);
+        return list;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> void readBySize(BreezeBuffer buffer, Collection<T> collection, Type vType, int size, boolean isPacked) throws BreezeException {
+        if (size == 0) {
+            return;
+        }
+        if (isPacked) {
+            if (valueType == null) {
+                valueType = readBreezeType(buffer, vType);
+            } else {
+                skipType(buffer); // need check?
+            }
+            for (int j = 0; j < size; j++) {
+                collection.add((T) valueType.read(buffer, false));
+            }
+        } else {
+            if (valueType != null) {
+                for (int j = 0; j < size; j++) {
+                    collection.add((T) valueType.read(buffer));
                 }
             } else {
-                if (valueType != null) {
-                    while (buffer.position() < endPos) {
-                        collection.add((T) valueType.read(buffer));
-                    }
-                } else {
-                    while (buffer.position() < endPos) {
-                        collection.add((T) readObjectByType(buffer, vType));
-                    }
+                for (int j = 0; j < size; j++) {
+                    collection.add((T) readObjectByType(buffer, vType));
                 }
-            }
-            if (buffer.position() != endPos) {
-                throw new BreezeException("Breeze deserialize wrong array size, except: " + size + " actual: " + (buffer.position() - startPos));
             }
         }
     }
@@ -116,18 +114,17 @@ public class TypePackedArray implements BreezeType<List<?>> {
         if (withType) {
             buffer.put(PACKED_ARRAY);
         }
-        if (value.isEmpty()) {
-            buffer.putInt(0);
+        int size = value.size();
+        buffer.putVarint(size);
+        if (size == 0) {
             return;
         }
-        int pos = buffer.position();
-        buffer.position(pos + 4);
         if (valueType != null) {
             valueType.putType(buffer);
         }
         for (Object v : value) {
             if (v == null) {
-                continue;// packed array not process null value
+                throw new BreezeException("not support null value in breeze packed array");
             }
             if (valueType == null) {
                 valueType = Breeze.getBreezeType(v.getClass());
@@ -135,10 +132,5 @@ public class TypePackedArray implements BreezeType<List<?>> {
             }
             valueType.write(buffer, v, false);
         }
-        int newPos = buffer.position();
-        buffer.position(pos);
-        buffer.putInt(newPos - pos - 4);
-        buffer.position(newPos);
     }
-
 }

@@ -37,7 +37,7 @@ import static com.weibo.breeze.type.Types.*;
  * @date 2019/3/21.
  */
 public class BreezeWriter {
-    public static int MAX_WRITE_COUNT = 10; // default not check circular reference.
+    public static int MAX_WRITE_COUNT = 0; // default not check circular reference.
     public static boolean IS_PACK = true;
 
     public static void writeString(BreezeBuffer buffer, String str) throws BreezeException {
