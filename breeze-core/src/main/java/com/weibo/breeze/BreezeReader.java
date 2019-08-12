@@ -116,7 +116,7 @@ public class BreezeReader {
             readField.readIndexField(index);
         }
         if (buffer.position() != endPos) {
-            throw new BreezeException("Breeze deserialize wrong map size, except: " + size + " actual: " + (buffer.position() - startPos));
+            throw new BreezeException("Breeze deserialize wrong message size, except: " + size + " actual: " + (buffer.position() - startPos));
         }
     }
 

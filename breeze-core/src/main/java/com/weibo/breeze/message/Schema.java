@@ -216,7 +216,8 @@ public class Schema {
                 }
                 if (breezeType != null) {
                     breezeType.writeMessageField(buffer, index, field.get(object));
-                } else {
+                } else if (object != null) {
+                    buffer.putVarint(index);
                     BreezeWriter.writeObject(buffer, field.get(object));
                 }
             } catch (IllegalAccessException e) {
