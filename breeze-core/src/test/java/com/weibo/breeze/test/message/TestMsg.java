@@ -18,7 +18,7 @@ import static com.weibo.breeze.type.Types.TYPE_INT32;
 import static com.weibo.breeze.type.Types.TYPE_STRING;
 
 public class TestMsg implements Message {
-    private static final Schema schema = new Schema();
+    private static final Schema breezeSchema = new Schema();
     private static BreezeType<Map<String, TestSubMsg>> myMapBreezeType;
     private static BreezeType<List<TestSubMsg>> myArrayBreezeType;
     private static BreezeType<TestSubMsg> subMsgBreezeType;
@@ -27,7 +27,7 @@ public class TestMsg implements Message {
 
     static {
         try {
-            schema.setName("motan.TestMsg")
+            breezeSchema.setName("motan.TestMsg")
                     .putField(new Schema.Field(1, "myInt", "int32"))
                     .putField(new Schema.Field(2, "myString", "string"))
                     .putField(new Schema.Field(3, "myMap", "map<string, TestSubMsg>"))
@@ -42,7 +42,7 @@ public class TestMsg implements Message {
             enumArrayBreezeType = getBreezeType(TestMsg.class, "enumArray");
         } catch (BreezeException ignore) {
         }
-        Breeze.putMessageInstance(schema.getName(), new TestMsg());
+        Breeze.putMessageInstance(breezeSchema.getName(), new TestMsg());
     }
 
     private int myInt;
@@ -99,22 +99,22 @@ public class TestMsg implements Message {
     }
 
     @Override
-    public String getName() {
-        return schema.getName();
+    public String messageName() {
+        return breezeSchema.getName();
     }
 
     @Override
-    public String getAlias() {
-        return schema.getAlias();
+    public String messageAlias() {
+        return breezeSchema.getAlias();
     }
 
     @Override
-    public Schema getSchema() {
-        return schema;
+    public Schema schema() {
+        return breezeSchema;
     }
 
     @Override
-    public Message getDefaultInstance() {
+    public Message defaultInstance() {
         return new TestMsg();
     }
 
@@ -122,56 +122,63 @@ public class TestMsg implements Message {
         return myInt;
     }
 
-    public void setMyInt(int myInt) {
+    public TestMsg setMyInt(int myInt) {
         this.myInt = myInt;
+        return this;
     }
 
     public String getMyString() {
         return myString;
     }
 
-    public void setMyString(String myString) {
+    public TestMsg setMyString(String myString) {
         this.myString = myString;
+        return this;
     }
 
     public Map<String, TestSubMsg> getMyMap() {
         return myMap;
     }
 
-    public void setMyMap(Map<String, TestSubMsg> myMap) {
+    public TestMsg setMyMap(Map<String, TestSubMsg> myMap) {
         this.myMap = myMap;
+        return this;
     }
 
     public List<TestSubMsg> getMyArray() {
         return myArray;
     }
 
-    public void setMyArray(List<TestSubMsg> myArray) {
+    public TestMsg setMyArray(List<TestSubMsg> myArray) {
         this.myArray = myArray;
+        return this;
     }
 
     public TestSubMsg getSubMsg() {
         return subMsg;
     }
 
-    public void setSubMsg(TestSubMsg subMsg) {
+    public TestMsg setSubMsg(TestSubMsg subMsg) {
         this.subMsg = subMsg;
+        return this;
     }
 
     public MyEnum getMyEnum() {
         return myEnum;
     }
 
-    public void setMyEnum(MyEnum myEnum) {
+    public TestMsg setMyEnum(MyEnum myEnum) {
         this.myEnum = myEnum;
+        return this;
     }
 
     public List<MyEnum> getEnumArray() {
         return enumArray;
     }
 
-    public void setEnumArray(List<MyEnum> enumArray) {
+    public TestMsg setEnumArray(List<MyEnum> enumArray) {
         this.enumArray = enumArray;
+        return this;
     }
 
     @Override

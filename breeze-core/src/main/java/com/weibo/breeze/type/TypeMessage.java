@@ -47,7 +47,7 @@ public class TypeMessage<T> implements BreezeType<T> {
         if (Message.class.isAssignableFrom(clz)) {
             try {
                 defaultMessage = (Message) clz.newInstance();
-                name = defaultMessage.getName();
+                name = defaultMessage.messageName();
             } catch (Exception e) {
                 throw new BreezeException("create new default Message fail. Message must have a constructor without arguments. e:" + e.getMessage());
             }
@@ -65,7 +65,7 @@ public class TypeMessage<T> implements BreezeType<T> {
             throw new BreezeException("default Message must not null in TypeMessage");
         }
         this.defaultMessage = defaultMessage;
-        this.name = defaultMessage.getName();
+        this.name = defaultMessage.messageName();
     }
 
     public TypeMessage(Serializer<T> serializer) throws BreezeException {
@@ -98,7 +98,7 @@ public class TypeMessage<T> implements BreezeType<T> {
             BreezeReader.readMessageName(buffer, type);
         }
         if (defaultMessage != null) {
-            return (T) defaultMessage.getDefaultInstance().readFromBuf(buffer);
+            return (T) defaultMessage.defaultInstance().readFromBuf(buffer);
         }
         return serializer.readFromBuf(buffer);
     }

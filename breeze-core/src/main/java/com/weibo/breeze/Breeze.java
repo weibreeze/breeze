@@ -109,7 +109,7 @@ public class Breeze {
     public static Message getMessageInstance(String name) {
         Message message = messageInstanceMap.get(name);
         if (message != null && message != NoMessage.instance) {
-            return message.getDefaultInstance();
+            return message.defaultInstance();
         }
         if (message == null) {
             // TODO limit map size?
@@ -117,7 +117,7 @@ public class Breeze {
                 Class clz = Class.forName(name, true, Thread.currentThread().getContextClassLoader());
                 if (Message.class.isAssignableFrom(clz)) {
                     messageInstanceMap.put(name, (Message) clz.newInstance());
-                    return messageInstanceMap.get(name).getDefaultInstance();
+                    return messageInstanceMap.get(name).defaultInstance();
                 }
             } catch (ReflectiveOperationException ignore) {
                 messageInstanceMap.put(name, NoMessage.instance);
@@ -282,22 +282,22 @@ public class Breeze {
         }
 
         @Override
-        public String getName() {
+        public String messageName() {
             return null;
         }
 
         @Override
-        public String getAlias() {
+        public String messageAlias() {
             return null;
         }
 
         @Override
-        public Message getDefaultInstance() {
+        public Message defaultInstance() {
             return null;
         }
 
         @Override
-        public Schema getSchema() {
+        public Schema schema() {
             return null;
         }
     }

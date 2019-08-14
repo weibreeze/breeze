@@ -38,11 +38,11 @@ public interface Message {
      */
     Message readFromBuf(BreezeBuffer buffer) throws BreezeException;
 
-    String getName();
+    String messageName();
 
-    String getAlias();
+    String messageAlias();
 
-    Message getDefaultInstance();
+    Message defaultInstance();
 
-    Schema getSchema();
+    Schema schema();
 }

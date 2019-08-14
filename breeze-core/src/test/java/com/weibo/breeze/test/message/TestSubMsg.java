@@ -119,22 +119,22 @@ public class TestSubMsg implements Message {
     }
 
     @Override
-    public String getName() {
+    public String messageName() {
         return schema.getName();
     }
 
     @Override
-    public String getAlias() {
+    public String messageAlias() {
         return schema.getAlias();
     }
 
     @Override
-    public Schema getSchema() {
+    public Schema schema() {
         return schema;
     }
 
     @Override
-    public Message getDefaultInstance() {
+    public Message defaultInstance() {
         return new TestSubMsg();
     }
 

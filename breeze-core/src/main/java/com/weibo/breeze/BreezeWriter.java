@@ -109,7 +109,7 @@ public class BreezeWriter {
         if (object instanceof Message) {
             checkWriteCount(buffer, object);
             Message message = (Message) object;
-            putMessageType(buffer, message.getName());
+            putMessageType(buffer, message.messageName());
             message.writeToBuf(buffer);
             return;
         }

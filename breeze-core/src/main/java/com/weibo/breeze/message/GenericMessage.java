@@ -81,7 +81,7 @@ public class GenericMessage implements Message {
     }
 
     @Override
-    public String getName() {
+    public String messageName() {
         return name;
     }
 
@@ -90,7 +90,7 @@ public class GenericMessage implements Message {
     }
 
     @Override
-    public String getAlias() {
+    public String messageAlias() {
         return alias;
     }
 
@@ -99,7 +99,7 @@ public class GenericMessage implements Message {
     }
 
     @Override
-    public Schema getSchema() {
+    public Schema schema() {
         return schema;
     }
 
@@ -108,7 +108,7 @@ public class GenericMessage implements Message {
     }
 
     @Override
-    public Message getDefaultInstance() {
+    public Message defaultInstance() {
         return new GenericMessage();
     }
 

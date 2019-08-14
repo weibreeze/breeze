@@ -430,7 +430,7 @@ public class BreezeReader {
             throw new BreezeException("create new default Message fail. Message must have a constructor without arguments. e:" + e.getMessage());
         }
 
-        if (name != null && (name.equalsIgnoreCase(message.getName()) || name.equalsIgnoreCase(message.getAlias()))) {
+        if (name != null && (name.equalsIgnoreCase(message.messageName()) || name.equalsIgnoreCase(message.messageAlias()))) {
             return message.readFromBuf(buffer);
         }
         throw new BreezeException("message name not correct. message clase:" + message.getClass().getName() + ", serialized name:" + name);
