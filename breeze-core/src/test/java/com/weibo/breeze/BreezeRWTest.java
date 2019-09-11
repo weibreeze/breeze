@@ -38,6 +38,87 @@ public class BreezeRWTest {
         return (T) BreezeReader.readObject(newBuffer, clz);
     }
 
+    public static TestMsg getDefaultTestMsg() {
+        TestMsg testMsg = new TestMsg();
+        testMsg.setMyString("testmmm");
+        testMsg.setMyInt(3);
+        Map<String, TestSubMsg> map = new HashMap<>();
+        TestSubMsg testSubMsg = new TestSubMsg();
+        testSubMsg.setMyInt(11);
+        testSubMsg.setMyString("tsmmmmm");
+        testSubMsg.setMyBool(true);
+        testSubMsg.setMyByte(Types.MESSAGE);
+        testSubMsg.setMyFloat64(23.456d);
+        testSubMsg.setMyFloat32(3.1415f);
+        testSubMsg.setMyBytes("xxxx".getBytes());
+        testSubMsg.setMyInt64(33l);
+        List<Integer> list = new ArrayList<>();
+        list.add(23);
+        list.add(56);
+        testSubMsg.setMyArray(list);
+        Map<String, byte[]> submap = new HashMap<>();
+        submap.put("k1", "vv".getBytes());
+        submap.put("k2", "vvvv".getBytes());
+        testSubMsg.setMyMap1(submap);
+        Map<Integer, List<Integer>> map2 = new HashMap<>();
+        List<Integer> listx = new ArrayList();
+        listx.add(234);
+        listx.add(567);
+        listx.add(789);
+        map2.put(6, listx);
+        testSubMsg.setMyMap2(map2);
+
+
+        TestSubMsg testSubMsg2 = new TestSubMsg();
+        testSubMsg2.setMyArray(new ArrayList<>());
+
+        TestSubMsg testSubMsg3 = new TestSubMsg();
+        testSubMsg3.setMyInt(234);
+
+        map.put("1", testSubMsg);
+        map.put("2", testSubMsg2);
+
+        testMsg.setMyMap(map);
+        testMsg.setSubMsg(testSubMsg3);
+
+        testMsg.setMyEnum(MyEnum.E2);
+
+        List<MyEnum> myEnums = new ArrayList<>();
+        myEnums.add(MyEnum.E3);
+        myEnums.add(MyEnum.E2);
+        myEnums.add(MyEnum.E1);
+        testMsg.setEnumArray(myEnums);
+        return testMsg;
+    }
+
+    public static TestObj getDefaultTestObj() {
+        TestObj testObj = new TestObj();
+        testObj.setString("mytest");
+        testObj.setInteger(40);
+
+        TestSubObj tso1 = new TestSubObj();
+        tso1.setAnInt(38);
+        tso1.setString("subtest message");
+        Map<String, String> map = new HashMap<>();
+        map.put("tk1", "tv1");
+        map.put("tk2", "tv2");
+        tso1.setMap(map);
+
+        TestSubObj tso2 = new TestSubObj();
+        tso2.setAnInt(39);
+        tso2.setString("subtest message--2");
+        Map<String, String> map2 = new HashMap<>();
+        map2.put("tk3", "tv3");
+        map2.put("tk4", "tv4");
+        tso2.setMap(map2);
+
+        List<TestSubObj> list = new ArrayList<>();
+        list.add(tso1);
+        list.add(tso2);
+        testObj.setList(list);
+        return testObj;
+    }
+
     @Test
     public void testBase() throws Exception {
         Object[][] objects = new Object[][]{
@@ -177,87 +258,6 @@ public class BreezeRWTest {
                 assertEquals(o, BreezeReader.readObject(newBuf, o.getClass()));
             }
         }
-    }
-
-    public TestObj getDefaultTestObj() {
-        TestObj testObj = new TestObj();
-        testObj.setString("mytest");
-        testObj.setInteger(40);
-
-        TestSubObj tso1 = new TestSubObj();
-        tso1.setAnInt(38);
-        tso1.setString("subtest message");
-        Map<String, String> map = new HashMap<>();
-        map.put("tk1", "tv1");
-        map.put("tk2", "tv2");
-        tso1.setMap(map);
-
-        TestSubObj tso2 = new TestSubObj();
-        tso2.setAnInt(39);
-        tso2.setString("subtest message--2");
-        Map<String, String> map2 = new HashMap<>();
-        map2.put("tk3", "tv3");
-        map2.put("tk4", "tv4");
-        tso2.setMap(map2);
-
-        List<TestSubObj> list = new ArrayList<>();
-        list.add(tso1);
-        list.add(tso2);
-        testObj.setList(list);
-        return testObj;
-    }
-
-    public TestMsg getDefaultTestMsg() {
-        TestMsg testMsg = new TestMsg();
-        testMsg.setMyString("testmmm");
-        testMsg.setMyInt(3);
-        Map<String, TestSubMsg> map = new HashMap<>();
-        TestSubMsg testSubMsg = new TestSubMsg();
-        testSubMsg.setMyInt(11);
-        testSubMsg.setMyString("tsmmmmm");
-        testSubMsg.setMyBool(true);
-        testSubMsg.setMyByte(Types.MESSAGE);
-        testSubMsg.setMyFloat64(23.456d);
-        testSubMsg.setMyFloat32(3.1415f);
-        testSubMsg.setMyBytes("xxxx".getBytes());
-        testSubMsg.setMyInt64(33l);
-        List<Integer> list = new ArrayList<>();
-        list.add(23);
-        list.add(56);
-        testSubMsg.setMyArray(list);
-        Map<String, byte[]> submap = new HashMap<>();
-        submap.put("k1", "vv".getBytes());
-        submap.put("k2", "vvvv".getBytes());
-        testSubMsg.setMyMap1(submap);
-        Map<Integer, List<Integer>> map2 = new HashMap<>();
-        List<Integer> listx = new ArrayList();
-        listx.add(234);
-        listx.add(567);
-        listx.add(789);
-        map2.put(6, listx);
-        testSubMsg.setMyMap2(map2);
-
-
-        TestSubMsg testSubMsg2 = new TestSubMsg();
-        testSubMsg2.setMyArray(new ArrayList<>());
-
-        TestSubMsg testSubMsg3 = new TestSubMsg();
-        testSubMsg3.setMyInt(234);
-
-        map.put("1", testSubMsg);
-        map.put("2", testSubMsg2);
-
-        testMsg.setMyMap(map);
-        testMsg.setSubMsg(testSubMsg3);
-
-        testMsg.setMyEnum(MyEnum.E2);
-
-        List<MyEnum> myEnums = new ArrayList<>();
-        myEnums.add(MyEnum.E3);
-        myEnums.add(MyEnum.E2);
-        myEnums.add(MyEnum.E1);
-        testMsg.setEnumArray(myEnums);
-        return testMsg;
     }
 
 }
