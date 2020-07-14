@@ -105,7 +105,6 @@ public class BreezeWriter {
             buffer.put(NULL);
             return;
         }
-        Class<?> clz = object.getClass();
         if (object instanceof Message) {
             checkWriteCount(buffer, object);
             Message message = (Message) object;
@@ -114,6 +113,7 @@ public class BreezeWriter {
             return;
         }
 
+        Class<?> clz = object.getClass();
         if (clz == String.class || clz == Character.class) {
             writeString(buffer, String.valueOf(object));
             return;

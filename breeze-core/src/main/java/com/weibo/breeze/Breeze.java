@@ -328,6 +328,12 @@ public class Breeze {
             if (clz != null) {
                 Serializer serializer;
                 Class cur = clz;
+                if (clz.isEnum()) {
+                    try {
+                        Class.forName(clz.getName()); // ensure the static block of enum message is executed
+                    } catch (ClassNotFoundException ignore) {
+                    }
+                }
                 while (cur != null && cur != Object.class) {
                     serializer = getSerializer(cur.getName());
                     if (serializer != null) {
