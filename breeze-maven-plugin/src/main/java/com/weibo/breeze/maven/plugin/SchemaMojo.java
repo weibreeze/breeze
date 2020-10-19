@@ -25,6 +25,7 @@ import com.weibo.breeze.SchemaUtil;
 import com.weibo.breeze.message.Message;
 import com.weibo.breeze.message.Schema;
 import com.weibo.breeze.serializer.CommonSerializer;
+import com.weibo.breeze.serializer.EnumSerializer;
 import com.weibo.breeze.serializer.Serializer;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
@@ -205,7 +206,7 @@ public class SchemaMojo extends AbstractMojo {
             return;
         }
         serializer = Breeze.getSerializer(name);
-        if (serializer != null && !(serializer instanceof CommonSerializer)) {
+        if (serializer != null && !(serializer instanceof CommonSerializer) && !(serializer instanceof EnumSerializer)) {
             getLog().info(name + " already has custom serializer " + serializer.getClass().getName());
             return;
         }
