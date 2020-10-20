@@ -20,9 +20,12 @@ package com.weibo.breeze.message;
 
 import com.weibo.breeze.*;
 import com.weibo.breeze.type.BreezeType;
+import com.weibo.breeze.type.Types;
 
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -199,7 +202,17 @@ public class Schema {
         public void setField(java.lang.reflect.Field field) throws BreezeException {
             if (field != null) {
                 field.setAccessible(true);
-                breezeType = Breeze.getBreezeType(field.getGenericType());
+                Type type = field.getGenericType();
+                breezeType = Breeze.getBreezeType(type);
+                if (breezeType.getType() == Types.PACKED_ARRAY) {
+                    if (type instanceof ParameterizedType) {
+                        type = ((ParameterizedType) type).getRawType();
+                    }
+                    if (type instanceof Class && !((Class) type).isAssignableFrom(List.class)) {
+                        breezeType = null; // 非list类型不使用breezeType进行编解码，使用Object兼容性会更好
+                        checked = true;
+                    }
+                }
             }
             this.field = field;
         }

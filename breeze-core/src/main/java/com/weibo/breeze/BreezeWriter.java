@@ -213,8 +213,8 @@ public class BreezeWriter {
     @SuppressWarnings("unchecked")
     public static void writeCollection(BreezeBuffer buffer, Collection<?> value) throws BreezeException {
         if (IS_PACK) {
-            BreezeType arrayType = new TypePackedArray();
-            arrayType.write(buffer, value);
+            TypePackedArray arrayType = new TypePackedArray();
+            arrayType.writeCollection(buffer, value, true);
         } else {
             TYPE_ARRAY.writeCollection(buffer, value, true);
         }
