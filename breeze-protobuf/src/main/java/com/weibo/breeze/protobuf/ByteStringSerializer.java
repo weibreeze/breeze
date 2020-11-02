@@ -19,32 +19,31 @@
 package com.weibo.breeze.protobuf;
 
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Message;
-import com.weibo.breeze.Breeze;
+import com.weibo.breeze.BreezeBuffer;
 import com.weibo.breeze.BreezeException;
 import com.weibo.breeze.serializer.Serializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.weibo.breeze.type.Types;
 
-/**
- * @author zhanglei28
- * @date 2019/4/2.
- */
-public class ProtoBufResolver implements Breeze.SerializerResolver {
-    private static final Logger logger = LoggerFactory.getLogger(ProtoBufResolver.class);
+public class ByteStringSerializer implements Serializer<ByteString> {
+    private final String[] names;
+
+    public ByteStringSerializer(Class<?> clz) {
+        names = new String[]{clz.getName()};
+    }
 
     @Override
-    public Serializer getSerializer(Class<?> clz) {
-        if (ByteString.class.isAssignableFrom(clz)) {
-            return new ByteStringSerializer(clz);
-        }
-        if (Message.class.isAssignableFrom(clz)) {
-            try {
-                return new ProtobufSerializer(clz);
-            } catch (BreezeException e) {
-                logger.warn("register ext serializer fail. clz:{}, e:{}", clz.getName(), e.getMessage());
-            }
-        }
-        return null;
+    public void writeToBuf(ByteString obj, BreezeBuffer buffer) throws BreezeException {
+        Types.TYPE_BYTE_ARRAY.write(buffer, obj.toByteArray());
+
+    }
+
+    @Override
+    public ByteString readFromBuf(BreezeBuffer buffer) throws BreezeException {
+        return ByteString.copyFrom(Types.TYPE_BYTE_ARRAY.read(buffer));
+    }
+
+    @Override
+    public String[] getNames() {
+        return names;
     }
 }
