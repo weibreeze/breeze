@@ -110,6 +110,10 @@ public class TypePackedArray implements BreezeType<List<?>> {
     @Override
     @SuppressWarnings("unchecked")
     public void write(BreezeBuffer buffer, List<?> value, boolean withType) throws BreezeException {
+        this.writeCollection(buffer, value, withType);
+    }
+
+    public void writeCollection(BreezeBuffer buffer, Collection<?> value, boolean withType) throws BreezeException {
         checkWriteCount(buffer, value);
         if (withType) {
             buffer.put(PACKED_ARRAY);

@@ -105,7 +105,6 @@ public class BreezeWriter {
             buffer.put(NULL);
             return;
         }
-        Class<?> clz = object.getClass();
         if (object instanceof Message) {
             checkWriteCount(buffer, object);
             Message message = (Message) object;
@@ -114,6 +113,7 @@ public class BreezeWriter {
             return;
         }
 
+        Class<?> clz = object.getClass();
         if (clz == String.class || clz == Character.class) {
             writeString(buffer, String.valueOf(object));
             return;
@@ -213,8 +213,8 @@ public class BreezeWriter {
     @SuppressWarnings("unchecked")
     public static void writeCollection(BreezeBuffer buffer, Collection<?> value) throws BreezeException {
         if (IS_PACK) {
-            BreezeType arrayType = new TypePackedArray();
-            arrayType.write(buffer, value);
+            TypePackedArray arrayType = new TypePackedArray();
+            arrayType.writeCollection(buffer, value, true);
         } else {
             TYPE_ARRAY.writeCollection(buffer, value, true);
         }
