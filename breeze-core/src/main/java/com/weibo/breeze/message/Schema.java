@@ -145,6 +145,7 @@ public class Schema {
         private BreezeType breezeType;
         private java.lang.reflect.Field field;
         private boolean checked;// check breeze type by lazy
+        private boolean checkDefault; // 如果为true时，不对默认值进行序列化。
 
         public Field(int index, String name, String type) throws BreezeException {
             this(index, name, type, null);
@@ -157,6 +158,7 @@ public class Schema {
             if (field != null) {
                 field.setAccessible(true);
                 breezeType = Breeze.getBreezeType(field.getGenericType());
+                setCheckDefaultByType(field.getGenericType());
             }
             if (name == null) {
                 throw new BreezeException("schema field name must not null");
@@ -204,6 +206,7 @@ public class Schema {
                 field.setAccessible(true);
                 Type type = field.getGenericType();
                 breezeType = Breeze.getBreezeType(type);
+                setCheckDefaultByType(type);
                 if (breezeType.getType() == Types.PACKED_ARRAY) {
                     if (type instanceof ParameterizedType) {
                         type = ((ParameterizedType) type).getRawType();
@@ -225,10 +228,11 @@ public class Schema {
             try {
                 if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
                     breezeType = Breeze.getBreezeType(field.getGenericType());
+                    setCheckDefaultByType(field.getGenericType());
                     checked = true;
                 }
                 if (breezeType != null) {
-                    breezeType.writeMessageField(buffer, index, field.get(object));
+                    breezeType.writeMessageField(buffer, index, field.get(object), true, checkDefault);
                 } else if (object != null) {
                     buffer.putVarint(index);
                     BreezeWriter.writeObject(buffer, field.get(object));
@@ -243,6 +247,7 @@ public class Schema {
                 Object fieldObject;
                 if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
                     breezeType = Breeze.getBreezeType(field.getGenericType());
+                    setCheckDefaultByType(field.getGenericType());
                     checked = true;
                 }
                 if (breezeType != null) {
@@ -264,6 +269,30 @@ public class Schema {
             return field.getGenericType();
         }
 
+        private void setCheckDefaultByType(Type fieldType) {
+            Class clz;
+            if (fieldType instanceof Class) {
+                clz = (Class) fieldType;
+            } else if (fieldType instanceof ParameterizedType) {
+                ParameterizedType pt = (ParameterizedType) fieldType;
+                clz = (Class) pt.getRawType();
+            } else {
+                return;
+            }
+            // 对native类型进行默认值检查
+            if (clz == short.class || clz == int.class || clz == long.class
+                    || clz == float.class || clz == double.class || clz == boolean.class) {
+                checkDefault = true;
+            }
+        }
+
+        public boolean isCheckDefault() {
+            return checkDefault;
+        }
+
+        public void setCheckDefault(boolean checkDefault) {
+            this.checkDefault = checkDefault;
+        }
     }
 
 }
