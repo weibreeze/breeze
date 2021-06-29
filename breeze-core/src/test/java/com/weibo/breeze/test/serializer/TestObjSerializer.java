@@ -55,6 +55,8 @@ public class TestObjSerializer implements Serializer<TestObj> {
                 case 4:
                     to.setList(listBreezeType.read(buffer));
                     break;
+                default: //skip unknown field
+                    BreezeReader.readObject(buffer, Object.class);
             }
         });
         return to;

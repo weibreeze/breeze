@@ -220,11 +220,13 @@ public class Schema {
             this.field = field;
         }
 
-        public Object getFieldInstance(Object object) throws IllegalAccessException {
+        public Object getFieldInstance(Object object) throws IllegalAccessException, BreezeException {
+            checkField();
             return field.get(object);
         }
 
         public void writeField(BreezeBuffer buffer, Object object) throws BreezeException {
+            checkField();
             try {
                 if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
                     breezeType = Breeze.getBreezeType(field.getGenericType());
@@ -243,6 +245,7 @@ public class Schema {
         }
 
         public void readField(BreezeBuffer buffer, Object object) throws BreezeException {
+            checkField();
             try {
                 Object fieldObject;
                 if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
@@ -261,11 +264,13 @@ public class Schema {
             }
         }
 
-        public Class<?> getFieldClass() {
+        public Class<?> getFieldClass() throws BreezeException {
+            checkField();
             return field.getType();
         }
 
-        public Type getGenericType() {
+        public Type getGenericType() throws BreezeException {
+            checkField();
             return field.getGenericType();
         }
 
@@ -292,6 +297,12 @@ public class Schema {
 
         public void setCheckDefault(boolean checkDefault) {
             this.checkDefault = checkDefault;
+        }
+
+        private void checkField() throws BreezeException {
+            if (field == null) {
+                throw new BreezeException("breeze schema field is null. " + getDesc());
+            }
         }
     }
 

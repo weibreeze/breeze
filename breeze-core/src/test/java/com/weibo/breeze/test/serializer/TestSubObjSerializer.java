@@ -48,6 +48,8 @@ public class TestSubObjSerializer implements Serializer<TestSubObj> {
                 case 3:
                     tso.setMap(mapBreezeType.read(buffer));
                     break;
+                default: //skip unknown field
+                    BreezeReader.readObject(buffer, Object.class);
             }
         });
         return tso;
