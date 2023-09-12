@@ -164,6 +164,125 @@ public class BreezeRWTest {
     }
 
     @Test
+    public void testGeneric() throws BreezeException {
+        // --- GenericMessage to enum class ---
+        // use class name
+        GenericMessage enumMessage = new GenericMessage("com.weibo.breeze.test.message.MyEnum"); // only support class name by default. If want to support alias, you need to register serializer before serialization.
+        enumMessage.putFields(1, 2);
+        MyEnum myEnum = (MyEnum) testSerialize(enumMessage, Object.class);
+        assertEquals(MyEnum.E2, myEnum);
+
+        // use alias
+        enumMessage.setName("motan.MyEnum"); // The serializer has been registered before, so using aliases can be supported
+        myEnum = (MyEnum) testSerialize(enumMessage, Object.class);
+        assertEquals(MyEnum.E2, myEnum);
+
+        // specify unserialize class
+        enumMessage.setName("unknown"); // The name of GenericMessage is not used when specifying the decoding type.
+        myEnum = testSerialize(enumMessage, MyEnum.class);
+        assertEquals(MyEnum.E2, myEnum);
+
+        // --- GenericMessage to breeze Message class ---
+        // use class name
+        GenericMessage breezeMessage = new GenericMessage(TestSubMsg.class.getName());
+        String s = "sub message";
+        int i = 18;
+        float f = 3.14f;
+        breezeMessage.putFields(1, s);
+        breezeMessage.putFields(2, i);
+        breezeMessage.putFields(4, f);
+        Map<Integer, List<Integer>> map = new HashMap<>();
+        List<Integer> list = new ArrayList();
+        list.add(222);
+        list.add(333);
+        list.add(444);
+        map.put(128, list);
+        breezeMessage.putFields(9, map);
+
+        TestSubMsg testSubMsg = (TestSubMsg) testSerialize(breezeMessage, Object.class);
+        assertEquals(s, testSubMsg.getMyString());
+        assertEquals(i, testSubMsg.getMyInt());
+        assertEquals(f, testSubMsg.getMyFloat32(), 0.01);
+        assertEquals(3, testSubMsg.getMyMap2().get(128).size());
+
+        // use alias. alias can only be used after Message is initialized.
+        breezeMessage.setName("motan.TestSubMsg");
+        testSubMsg = (TestSubMsg) testSerialize(breezeMessage, Object.class);
+        assertEquals(f, testSubMsg.getMyFloat32(), 0.01);
+        assertEquals(3, testSubMsg.getMyMap2().get(128).size());
+
+        // specify unserialize class
+        testSubMsg = (TestSubMsg) testSerialize(breezeMessage, TestSubMsg.class);
+        assertEquals(f, testSubMsg.getMyFloat32(), 0.01);
+        assertEquals(3, testSubMsg.getMyMap2().get(128).size());
+
+        // complex message
+        GenericMessage complexBreezeMessage = new GenericMessage(TestMsg.class.getName());
+        complexBreezeMessage.putFields(1, 28);
+        complexBreezeMessage.putFields(2, "complex message");
+        Map<String, Object> myMap = new HashMap<>();
+        myMap.put("xxx", breezeMessage);
+        complexBreezeMessage.putFields(3, myMap);
+        List<Object> myArray = new ArrayList<>();
+        myArray.add(breezeMessage);
+        complexBreezeMessage.putFields(4, myArray);
+        complexBreezeMessage.putFields(5, breezeMessage);
+        complexBreezeMessage.putFields(6, enumMessage);
+        List<Object> enumArray = new ArrayList<>();
+        enumArray.add(enumMessage);
+        complexBreezeMessage.putFields(7, enumArray);
+
+        TestMsg testMsg = (TestMsg) testSerialize(complexBreezeMessage, Object.class);
+        assertEquals(28, testMsg.getMyInt());
+        assertEquals("complex message", testMsg.getMyString());
+        assertTrue(444 == testMsg.getMyMap().get("xxx").getMyMap2().get(128).get(2));
+        assertTrue(444 == testMsg.getMyArray().get(0).getMyMap2().get(128).get(2));
+        assertTrue(444 == testMsg.getSubMsg().getMyMap2().get(128).get(2));
+        assertEquals(MyEnum.E2, testMsg.getMyEnum());
+        assertEquals(MyEnum.E2, testMsg.getEnumArray().get(0));
+
+        // --- GenericMessage to common class ---
+        // use CommonSerializer
+        Breeze.getSerializerFactory().removeSerializer(TestObj.class.getName());
+        Breeze.getSerializerFactory().removeSerializer(TestSubObj.class.getName());
+        GenericMessage genericMessage = new GenericMessage(TestObj.class.getName());
+        genericMessage.putFields(CommonSerializer.getHash("string"), "test string");
+        genericMessage.putFields(CommonSerializer.getHash("integer"), 12);
+        GenericMessage subGenericMessage = new GenericMessage(TestSubObj.class.getName());
+        Map<String, String> subMap = new HashMap<>();
+        subMap.put("ttt", "yyy");
+        subGenericMessage.putFields(CommonSerializer.getHash("map"), subMap);
+        genericMessage.putFields(CommonSerializer.getHash("subObj"), subGenericMessage);
+        List<Object> subList = new ArrayList<>();
+        subList.add(subGenericMessage);
+        genericMessage.putFields(CommonSerializer.getHash("list"), subList);
+        TestObj testObj = (TestObj) testSerialize(genericMessage, Object.class);
+        assertEquals("test string", testObj.getString());
+        assertTrue(12 == testObj.getInteger());
+        assertEquals("yyy", testObj.getSubObj().getMap().get("ttt"));
+        assertEquals("yyy", testObj.getList().get(0).getMap().get("ttt"));
+
+
+        // use custom serializer
+        Breeze.registerSerializer(new TestSubObjSerializer()); // need to register TestSubObjSerializer first
+        Breeze.registerSerializer(new TestObjSerializer());
+        GenericMessage genericMessage2 = new GenericMessage(TestObj.class.getName());
+        genericMessage2.putFields(2, "test string");
+        genericMessage2.putFields(3, 12);
+        GenericMessage subGenericMessage2 = new GenericMessage(TestSubObj.class.getName());
+        subGenericMessage2.putFields(3, subMap);
+        genericMessage2.putFields(1, subGenericMessage2);
+        List<Object> subList2 = new ArrayList<>();
+        subList2.add(subGenericMessage2);
+        genericMessage2.putFields(4, subList2);
+        testObj = (TestObj) testSerialize(genericMessage2, Object.class);
+        assertEquals("test string", testObj.getString());
+        assertTrue(12 == testObj.getInteger());
+        assertEquals("yyy", testObj.getSubObj().getMap().get("ttt"));
+        assertEquals("yyy", testObj.getList().get(0).getMap().get("ttt"));
+    }
+
+    @Test
     public void testSerializer() throws Exception {
         Breeze.getSerializerFactory().removeSerializer(TestObj.class.getName());
         //test commonserializer
@@ -183,8 +302,8 @@ public class BreezeRWTest {
 
 
         // test custom serializer
-        Breeze.registerSerializer(new TestObjSerializer());
         Breeze.registerSerializer(new TestSubObjSerializer());
+        Breeze.registerSerializer(new TestObjSerializer());
 
         serializer = Breeze.getSerializer(TestObj.class.getName());
         assertTrue(serializer instanceof TestObjSerializer);

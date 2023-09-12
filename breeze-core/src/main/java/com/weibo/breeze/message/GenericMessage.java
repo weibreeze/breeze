@@ -34,10 +34,19 @@ import static com.weibo.breeze.BreezeWriter.writeObject;
  * @date 2019/3/21.
  */
 public class GenericMessage implements Message {
+    private static final String DEFAULT_NAME = "GenericMessage";
     private Map<Integer, Object> fields = new HashMap<>();// field 0 is reserved for schema
     private Schema schema;
-    private String name = "GenericMessage";
+    private String name;
     private String alias;//alias for class name.
+
+    public GenericMessage() {
+        this.name = DEFAULT_NAME;
+    }
+
+    public GenericMessage(String name) {
+        this.name = name;
+    }
 
     public int getSize() {
         return fields.size();
@@ -109,7 +118,7 @@ public class GenericMessage implements Message {
 
     @Override
     public Message defaultInstance() {
-        return new GenericMessage();
+        return new GenericMessage(name);
     }
 
     public void putFields(Integer index, Object field) {
