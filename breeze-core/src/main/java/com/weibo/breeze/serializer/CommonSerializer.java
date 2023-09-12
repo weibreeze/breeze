@@ -39,6 +39,8 @@ public class CommonSerializer<T> implements Serializer<T> {
     private Object buildObject;
     private Schema schema;
     private String cleanName;
+    private Map<Integer, Integer> fieldHashIndexMap = new HashMap<>(0); // Store the hash value of the field name. Used to solve deserialize compatibility
+
 
     public CommonSerializer(Class<T> clz) throws BreezeException {
         checkClass(clz);
@@ -110,6 +112,7 @@ public class CommonSerializer<T> implements Serializer<T> {
         for (Map.Entry<Integer, Schema.Field> entry : fieldMap.entrySet()) {
             try {
                 entry.getValue().setField(getField(clz, entry.getValue().getName()));
+                fieldHashIndexMap.put(getHash(entry.getValue().getName()), entry.getKey());
             } catch (NoSuchFieldException e) {
                 throw new BreezeException("can not get field from class " + clz.getName() + ", field:" + entry.getValue().getName());
             }
@@ -175,6 +178,9 @@ public class CommonSerializer<T> implements Serializer<T> {
         }
         BreezeReader.readMessage(buffer, (int index) -> {
             Schema.Field field = schema.getFieldByIndex(index);
+            if (field == null && schema.isPrimitive() && fieldHashIndexMap.containsKey(index)) {
+                field = schema.getFieldByIndex(fieldHashIndexMap.get(index)); // try using hash index
+            }
             if (field == null) { // ignore unknown fields
                 BreezeReader.readObject(buffer, Object.class);
                 return;

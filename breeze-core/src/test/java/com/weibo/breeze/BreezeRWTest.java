@@ -28,7 +28,6 @@ import static org.junit.Assert.*;
  */
 @SuppressWarnings("all")
 public class BreezeRWTest {
-
     protected static <T> T testSerialize(Object object, Class<T> clz) throws BreezeException {
         BreezeBuffer buffer = new BreezeBuffer(256);
         BreezeWriter.writeObject(buffer, object);
@@ -116,6 +115,7 @@ public class BreezeRWTest {
         list.add(tso1);
         list.add(tso2);
         testObj.setList(list);
+        testObj.setSubObj(tso1);
         return testObj;
     }
 
@@ -310,6 +310,26 @@ public class BreezeRWTest {
 
         testObj2 = testSerialize(testObj, TestObj.class);
         assertEquals(testObj, testObj2);
+    }
+
+    @Test
+    public void testCommonSerializerCompatibility() throws BreezeException {
+        CommonSerializer commonSerializer = new CommonSerializer(TestSubObj.class);
+        TestSubObj testSubObj = getDefaultTestObj().getSubObj();
+        BreezeBuffer buffer = new BreezeBuffer(1024);
+        commonSerializer.writeToBuf(testSubObj, buffer);
+        buffer.flip();
+        byte[] bytes = buffer.getBytes();
+
+        BreezeBuffer buffer1 = new BreezeBuffer(bytes);
+        Schema schema = new Schema();
+        schema.setName(TestSubObj.class.getName())
+                .putField(1, "anInt")
+                .putField(2, "string")
+                .putField(3, "map");
+        CommonSerializer<TestSubObj> commonSerializer1 = new CommonSerializer(schema);
+        TestSubObj result = commonSerializer1.readFromBuf(buffer1);
+        assertEquals(testSubObj, result);
     }
 
     @Test
