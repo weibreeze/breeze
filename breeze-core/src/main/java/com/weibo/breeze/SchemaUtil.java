@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  * @date 2019/5/21.
  */
 public class SchemaUtil {
-    private static Pattern fieldPattern = Pattern.compile("^([\\w<>., ]+) +(\\w+) *= *(\\d+) *;$");
+    private static final Pattern fieldPattern = Pattern.compile("^([\\w<>., ]+) +(\\w+) *= *(\\d+) *;$");
 
     public static Schema parseSchema(String content) throws BreezeException {
         try {
@@ -71,9 +71,9 @@ public class SchemaUtil {
                         packageString = line.substring(8, line.length() - 1).trim();
                     }
                 } else if (line.startsWith("option java_package")) {
-                    packageString = line.substring(line.indexOf("=") + 1, line.length() - 1).trim();
+                    packageString = getPackageName(line);
                 } else if (line.startsWith("option java_name")) {
-                    schema.setJavaName(line.substring(line.indexOf("=") + 1, line.length() - 1).trim());
+                    schema.setJavaName(getPackageName(line));
                 } else if (line.startsWith("enum ")) {
                     schema.setName(packageString + "." + getName(line, 5));
                     inEnum = true;
@@ -124,10 +124,9 @@ public class SchemaUtil {
         sb.append("\npackage ").append(packageName).append(";\n\n");
         if (schema.isEnum()) { // enum
             sb.append("enum ").append(schema.getName().substring(index + 1)).append("{\n");
-            for (Map.Entry entry : schema.getEnumValues().entrySet()) {
+            for (Map.Entry<Integer, String> entry : schema.getEnumValues().entrySet()) {
                 sb.append("    ").append(entry.getValue()).append(" = ").append(entry.getKey()).append(";\n");
             }
-            sb.append("}\n");
         } else { // message
             sb.append("message ").append(schema.getName().substring(index + 1)).append("{\n");
             List<Integer> fields = new ArrayList<>(schema.getFields().keySet());
@@ -136,8 +135,34 @@ public class SchemaUtil {
                 Schema.Field field = schema.getFieldByIndex(fieldIndex);
                 sb.append("    ").append(field.getType()).append(" ").append(field.getName()).append(" = ").append(field.getIndex()).append(";\n");
             }
-            sb.append("}\n");
         }
+        sb.append("}\n");
         return sb.toString();
+    }
+
+    public static void checkCompatible(Schema s1, Schema s2) throws BreezeException {
+        if (!s1.getName().equals(s2.getName())) {
+            throw new BreezeException("breeze field name not compatible with old version. schema:" + s1.getName());
+        }
+        if (s1.isEnum()) {
+            Map<Integer, String> values1 = s1.getEnumValues();
+            Map<Integer, String> values2 = s2.getEnumValues();
+            for (Map.Entry<Integer, String> entry : values1.entrySet()) {
+                if (values2.get(entry.getKey()) != null && !values2.get(entry.getKey()).equals(entry.getValue())) {
+                    throw new BreezeException("breeze enum value not compatible with old version. schema:" + s1.getName() + ", enum:" + entry.getValue() + ", index:" + entry.getKey() + ", old value:" + values2.get(entry.getKey()));
+                }
+            }
+        } else {// message
+            for (Schema.Field field : s1.getFields().values()) {
+                Schema.Field otherField = s2.getFieldByName(field.getName());
+                if (otherField != null && otherField.getIndex() != field.getIndex()) {
+                    throw new BreezeException("breeze field index not compatible with old version. schema:" + s1.getName() + ", field:" + field.getName() + ", index:" + field.getIndex() + ", old index:" + otherField.getIndex());
+                }
+            }
+        }
+    }
+
+    private static String getPackageName(String line) {
+        return line.substring(line.indexOf("=") + 1, line.length() - 1).trim();
     }
 }

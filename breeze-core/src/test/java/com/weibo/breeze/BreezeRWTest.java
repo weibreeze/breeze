@@ -94,6 +94,8 @@ public class BreezeRWTest {
         TestObj testObj = new TestObj();
         testObj.setString("mytest");
         testObj.setInteger(40);
+        testObj.setIntArray(new int[]{23, 33, 43, 53});
+        testObj.setStringArray(new String[]{"aaa", "bbb", "ccc", "ddd"});
 
         TestSubObj tso1 = new TestSubObj();
         tso1.setAnInt(38);
@@ -116,6 +118,7 @@ public class BreezeRWTest {
         list.add(tso2);
         testObj.setList(list);
         testObj.setSubObj(tso1);
+        testObj.setObjArray(new TestSubObj[]{tso1, tso2});
         return testObj;
     }
 
@@ -256,11 +259,24 @@ public class BreezeRWTest {
         List<Object> subList = new ArrayList<>();
         subList.add(subGenericMessage);
         genericMessage.putFields(CommonSerializer.getHash("list"), subList);
+        List<Integer> integerList = new ArrayList<>();
+        integerList.add(234);
+        integerList.add(456);
+        List<String> stringList = new ArrayList<>();
+        stringList.add("aaa");
+        stringList.add("bbb");
+        stringList.add("ccc");
+        genericMessage.putFields(CommonSerializer.getHash("intArray"), integerList);
+        genericMessage.putFields(CommonSerializer.getHash("stringArray"), stringList);
+        genericMessage.putFields(CommonSerializer.getHash("objArray"), subList);
         TestObj testObj = (TestObj) testSerialize(genericMessage, Object.class);
         assertEquals("test string", testObj.getString());
         assertTrue(12 == testObj.getInteger());
         assertEquals("yyy", testObj.getSubObj().getMap().get("ttt"));
         assertEquals("yyy", testObj.getList().get(0).getMap().get("ttt"));
+        assertEquals(456, testObj.getIntArray()[1]);
+        assertEquals("ccc", testObj.getStringArray()[2]);
+        assertEquals("yyy", testObj.getObjArray()[0].getMap().get("ttt"));
 
 
         // use custom serializer
@@ -275,11 +291,17 @@ public class BreezeRWTest {
         List<Object> subList2 = new ArrayList<>();
         subList2.add(subGenericMessage2);
         genericMessage2.putFields(4, subList2);
+        genericMessage2.putFields(5, integerList);
+        genericMessage2.putFields(6, stringList);
+        genericMessage2.putFields(7, subList2);
         testObj = (TestObj) testSerialize(genericMessage2, Object.class);
         assertEquals("test string", testObj.getString());
         assertTrue(12 == testObj.getInteger());
         assertEquals("yyy", testObj.getSubObj().getMap().get("ttt"));
         assertEquals("yyy", testObj.getList().get(0).getMap().get("ttt"));
+        assertEquals(456, testObj.getIntArray()[1]);
+        assertEquals("ccc", testObj.getStringArray()[2]);
+        assertEquals("yyy", testObj.getObjArray()[0].getMap().get("ttt"));
     }
 
     @Test
@@ -338,7 +360,10 @@ public class BreezeRWTest {
                 .putField(1, "subObj")
                 .putField(2, "integer")
                 .putField(3, "string")
-                .putField(4, "list");
+                .putField(4, "list")
+                .putField(5, "intArray")
+                .putField(6, "stringArray")
+                .putField(7, "objArray");
         CommonSerializer commonSerializer = new CommonSerializer(testObjSchema);
         Breeze.registerSerializer(commonSerializer);
 

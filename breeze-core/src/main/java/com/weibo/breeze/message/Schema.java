@@ -20,8 +20,10 @@ package com.weibo.breeze.message;
 
 import com.weibo.breeze.*;
 import com.weibo.breeze.type.BreezeType;
+import com.weibo.breeze.type.TypePackedArray;
 import com.weibo.breeze.type.Types;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.HashMap;
@@ -33,15 +35,15 @@ import java.util.Map;
  * @date 2019/3/21.
  */
 public class Schema {
+    private final Map<String, Field> fieldNameMap = new HashMap<>();
+    private final Map<Integer, Field> fieldIndexMap = new HashMap<>(0);
+    private final Map<Integer, String> enumValues = new HashMap<>(0);
+    private final Map<String, Integer> enumNameMap = new HashMap<>(0);
     private String name;//schema name
     private String alias;
-    private String javaName; // java class name. it will null if not a inner class.
+    private String javaName; // java class name. it will be null if not an inner class.
     private boolean primitive = true; // is generated from schema. true : from schema; false : from class dynamically
-    private Map<String, Field> fieldNameMap = new HashMap<>();
-    private Map<Integer, Field> fieldIndexMap = new HashMap<>(0);
     private boolean isEnum;
-    private Map<Integer, String> enumValues = new HashMap<>(0);
-    private Map<String, Integer> enumNameMap = new HashMap<>(0);
 
     public static Schema newSchema(String name) {
         return new Schema().setName(name);
@@ -138,6 +140,7 @@ public class Schema {
         return this;
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static class Field {
         private int index;
         private String name;
@@ -207,7 +210,7 @@ public class Schema {
                 Type type = field.getGenericType();
                 breezeType = Breeze.getBreezeType(type);
                 setCheckDefaultByType(type);
-                if (breezeType.getType() == Types.PACKED_ARRAY) {
+                if (breezeType != null && breezeType.getType() == Types.PACKED_ARRAY) {
                     if (type instanceof ParameterizedType) {
                         type = ((ParameterizedType) type).getRawType();
                     }
@@ -228,16 +231,32 @@ public class Schema {
         public void writeField(BreezeBuffer buffer, Object object) throws BreezeException {
             checkField();
             try {
-                if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
-                    breezeType = Breeze.getBreezeType(field.getGenericType());
-                    setCheckDefaultByType(field.getGenericType());
-                    checked = true;
-                }
-                if (breezeType != null) {
-                    breezeType.writeMessageField(buffer, index, field.get(object), true, checkDefault);
-                } else if (object != null) {
-                    buffer.putVarint(index);
-                    BreezeWriter.writeObject(buffer, field.get(object));
+                Object fieldObject = field.get(object);
+                if (fieldObject != null) {
+                    if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
+                        breezeType = Breeze.getBreezeType(field.getGenericType());
+                        setCheckDefaultByType(field.getGenericType());
+                        checked = true;
+                    }
+                    if (breezeType != null) {
+                        if (breezeType instanceof TypePackedArray && field.getType().isArray()) { // Compatible with array
+                            buffer.putVarint(index);
+                            if (field.getType().getComponentType().isPrimitive()) {
+                                Object[] tempObjects = new Object[Array.getLength(fieldObject)];
+                                for (int i = 0; i < tempObjects.length; i++) {
+                                    tempObjects[i] = Array.get(fieldObject, i);
+                                }
+                                ((TypePackedArray) breezeType).writeArray(buffer, tempObjects, true);
+                            } else {
+                                ((TypePackedArray) breezeType).writeArray(buffer, (Object[]) fieldObject, true);
+                            }
+                        } else {
+                            breezeType.writeMessageField(buffer, index, fieldObject, true, checkDefault);
+                        }
+                    } else if (object != null) {
+                        buffer.putVarint(index);
+                        BreezeWriter.writeObject(buffer, fieldObject);
+                    }
                 }
             } catch (IllegalAccessException e) {
                 throw new BreezeException("can not get field. class:" + field.getDeclaringClass() + ", field: " + name + ". e:" + e.getMessage());
@@ -254,7 +273,15 @@ public class Schema {
                     checked = true;
                 }
                 if (breezeType != null) {
-                    fieldObject = breezeType.read(buffer);
+                    if (breezeType instanceof TypePackedArray && field.getType().isArray()) { // Compatible with array
+                        List<?> tempList = ((TypePackedArray) breezeType).read(buffer);
+                        fieldObject = Array.newInstance(field.getType().getComponentType(), tempList.size());
+                        for (int i = 0; i < tempList.size(); i++) {
+                            Array.set(fieldObject, i, tempList.get(i));
+                        }
+                    } else {
+                        fieldObject = breezeType.read(buffer);
+                    }
                 } else {
                     fieldObject = BreezeReader.readObjectByType(buffer, field.getGenericType());
                 }

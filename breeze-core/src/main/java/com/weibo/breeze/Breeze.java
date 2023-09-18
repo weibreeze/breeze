@@ -18,6 +18,7 @@
 
 package com.weibo.breeze;
 
+import com.weibo.breeze.message.GenericMessage;
 import com.weibo.breeze.message.Message;
 import com.weibo.breeze.message.Schema;
 import com.weibo.breeze.message.SchemaDesc;
@@ -37,20 +38,21 @@ import static com.weibo.breeze.type.Types.*;
  * @author zhanglei28
  * @date 2019/3/25.
  */
+@SuppressWarnings("rawtypes")
 public class Breeze {
     public static final String BREEZE_SERIALIZER_SUFFIX = "BreezeSerializer";
     private static final Logger logger = LoggerFactory.getLogger(Breeze.class);
     private static final ThreadLocal<Set<String>> GET_SERIALIZER_SET = ThreadLocal.withInitial(HashSet::new);
-    public static int MAX_ELEM_SIZE = 100000;
-    private static SerializerFactory serializerFactory = new DefaultSerializerFactory();
-    private static ConcurrentHashMap<String, Message> messageInstanceMap = new ConcurrentHashMap<>(128);
-    private static Serializer[] defaultSerializers = new Serializer[]{
+    private static final ConcurrentHashMap<String, Message> messageInstanceMap = new ConcurrentHashMap<>(128);
+    private static final Serializer[] defaultSerializers = new Serializer[]{
             new DateSerializer(),
             new BigDecimalSerializer(),
             new TimestampSerializer(),
             new BigIntegerSerializer(),
     };
-    private static List<SerializerResolver> extResolver = new ArrayList<>();
+    private static final List<SerializerResolver> extResolver = new ArrayList<>();
+    public static int MAX_ELEM_SIZE = 100000;
+    private static SerializerFactory serializerFactory = new DefaultSerializerFactory();
 
     static {
         // register default serializers
@@ -166,6 +168,16 @@ public class Breeze {
         return null;
     }
 
+    public static BreezeType getBreezeTypeByObject(Object object) throws BreezeException {
+        if (object == null) {
+            throw new BreezeException("can not get breeze type by null object");
+        }
+        if (object instanceof GenericMessage) { // Compatible with the name specified GenericMessage
+            return new TypeMessage((Message) object);
+        }
+        return getBreezeType(object.getClass());
+    }
+
     // unknown type will return null
     @SuppressWarnings("unchecked")
     public static BreezeType getBreezeType(Type type) throws BreezeException {
@@ -247,10 +259,11 @@ public class Breeze {
             if (clz.getComponentType() == byte.class) {
                 return TYPE_BYTE_ARRAY;
             }
+            return new TypePackedArray();
         }
 
         if (GET_SERIALIZER_SET.get().contains(clz.getName())) {
-            // circular get serializer, will replaced later
+            // circular get serializer, will be replaced later
             return new TypePlaceHolder(clz);
         }
         try {
@@ -305,7 +318,7 @@ public class Breeze {
     @SuppressWarnings("unchecked")
     public static class DefaultSerializerFactory implements SerializerFactory {
 
-        private ConcurrentHashMap<String, Serializer> serializerMap = new ConcurrentHashMap<>(32);
+        private final ConcurrentHashMap<String, Serializer> serializerMap = new ConcurrentHashMap<>(32);
 
         private DefaultSerializerFactory() {
         }
