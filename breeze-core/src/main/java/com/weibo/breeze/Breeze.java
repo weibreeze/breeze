@@ -175,7 +175,11 @@ public class Breeze {
         if (object instanceof GenericMessage) { // Compatible with the name specified GenericMessage
             return new TypeMessage((Message) object);
         }
-        return getBreezeType(object.getClass());
+        BreezeType breezeType = getBreezeType(object.getClass());
+        if (breezeType == null) {
+            throw new BreezeException("can not get breeze type by " + object.getClass().getName());
+        }
+        return breezeType;
     }
 
     // unknown type will return null
@@ -317,8 +321,8 @@ public class Breeze {
 
     @SuppressWarnings("unchecked")
     public static class DefaultSerializerFactory implements SerializerFactory {
-
         private final ConcurrentHashMap<String, Serializer> serializerMap = new ConcurrentHashMap<>(32);
+        private final ConcurrentHashMap<String, Boolean> missedSerializers = new ConcurrentHashMap<>();
 
         private DefaultSerializerFactory() {
         }
@@ -339,74 +343,85 @@ public class Breeze {
         @Override
         public Serializer getSerializer(Class clz) {
             if (clz != null) {
-                Serializer serializer;
-                Class cur = clz;
-                if (clz.isEnum()) {
-                    try {
-                        Class.forName(clz.getName()); // ensure the static block of enum message is executed
-                    } catch (ClassNotFoundException ignore) {
-                    }
+                String name = clz.getName();
+                Serializer serializer = getSerializer(name);
+                if (serializer != null) {
+                    return serializer;
                 }
-                while (cur != null && cur != Object.class) {
-                    serializer = getSerializer(cur.getName());
-                    if (serializer != null) {
-                        return serializer;
-                    }
-                    // serializer by specified class name
-                    serializer = getSerializerClassByName(cur.getName());
-                    if (serializer != null) {
-                        return serializer;
-                    }
-
-                    cur = cur.getSuperclass();
-                }
-
-                if (clz.isEnum()) {
-                    try {
-                        serializer = new EnumSerializer(clz);
-                        registerSerializer(serializer);
-                        return serializer;
-                    } catch (BreezeException e) {
-                        logger.warn("create enum serializer fail. clz:{}, e:{}", clz.getName(), e.getMessage());
-                    }
+                if (missedSerializers.containsKey(name)) {
                     return null;
                 }
-                for (SerializerResolver resolver : extResolver) {
-                    serializer = resolver.getSerializer(clz);
-                    if (serializer != null) {
+                synchronized (name.intern()) {
+                    if (clz.isEnum()) {
                         try {
-                            registerSerializer(serializer);
-                            return serializer;
-                        } catch (BreezeException e) {
-                            logger.warn("register ext serializer fail. clz:{}, e:{}", clz.getName(), e.getMessage());
+                            Class.forName(name); // ensure the static block of enum message is executed
+                        } catch (ClassNotFoundException ignore) {
                         }
                     }
-                }
-
-                if (clz != Object.class && !clz.isInterface()) {
-                    try {
-                        // load from META-INF/breeze/${className}.breeze
-                        Schema schema = SchemaLoader.loadSchema(clz.getName());
-                        CommonSerializer commonSerializer;
-                        if (schema != null) {
-                            commonSerializer = new CommonSerializer(schema);
-                        } else {
-                            commonSerializer = new CommonSerializer(clz);
-                        }
-                        registerSerializer(commonSerializer);
-                        return commonSerializer;
-                    } catch (BreezeException e) {
-                        logger.warn("create common serializer fail. clz:{}, e:{}", clz.getName(), e.getMessage());
-                    }
-
-                    Class[] interfaces = clz.getInterfaces();
-                    for (Class interfaceClass : interfaces) {
-                        serializer = getSerializer(interfaceClass.getName());
+                    Class cur = clz; // Start checking from the current class because enum message will register the serializer after executing the static block.
+                    while (cur != null && cur != Object.class) {
+                        serializer = getSerializer(cur.getName());
                         if (serializer != null) {
                             return serializer;
                         }
+                        // serializer by specified class name
+                        serializer = getSerializerClassByName(cur.getName());
+                        if (serializer != null) {
+                            return serializer;
+                        }
+
+                        cur = cur.getSuperclass();
+                    }
+
+                    if (clz.isEnum()) {
+                        try {
+                            serializer = new EnumSerializer(clz);
+                            registerSerializer(serializer);
+                            return serializer;
+                        } catch (BreezeException e) {
+                            logger.warn("create enum serializer fail. clz:{}, e:{}", name, e.getMessage());
+                        }
+                        missedSerializers.put(name, false);
+                        return null;
+                    }
+                    for (SerializerResolver resolver : extResolver) {
+                        serializer = resolver.getSerializer(clz);
+                        if (serializer != null) {
+                            try {
+                                registerSerializer(serializer);
+                                return serializer;
+                            } catch (BreezeException e) {
+                                logger.warn("register ext serializer fail. clz:{}, e:{}", name, e.getMessage());
+                            }
+                        }
+                    }
+
+                    if (clz != Object.class && !clz.isInterface()) {
+                        try {
+                            // load from META-INF/breeze/${className}.breeze
+                            Schema schema = SchemaLoader.loadSchema(name);
+                            CommonSerializer commonSerializer;
+                            if (schema != null) {
+                                commonSerializer = new CommonSerializer(schema);
+                            } else {
+                                commonSerializer = new CommonSerializer(clz);
+                            }
+                            registerSerializer(commonSerializer);
+                            return commonSerializer;
+                        } catch (BreezeException e) {
+                            logger.warn("create common serializer fail. clz:{}, e:{}", name, e.getMessage());
+                        }
+
+                        Class[] interfaces = clz.getInterfaces();
+                        for (Class interfaceClass : interfaces) {
+                            serializer = getSerializer(interfaceClass.getName());
+                            if (serializer != null) {
+                                return serializer;
+                            }
+                        }
                     }
                 }
+                missedSerializers.put(name, false);
             }
             return null;
         }

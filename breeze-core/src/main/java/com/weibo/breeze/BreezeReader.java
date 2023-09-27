@@ -531,7 +531,7 @@ public class BreezeReader {
             case BYTE_ARRAY:
                 return TYPE_BYTE_ARRAY;
         }
-        return null;
+        throw new BreezeException("can not read breeze type from buffer, type: " + bType);
     }
 
     public static String readMessageName(BreezeBuffer buffer, byte typeByte) throws BreezeException {

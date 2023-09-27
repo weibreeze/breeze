@@ -20,6 +20,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
@@ -317,6 +319,7 @@ public class BreezeRWTest {
         assertTrue(serializer instanceof CommonSerializer);
 
         //test enum serializer
+        Breeze.getSerializerFactory().removeSerializer(TestEnum.class.getName());
         assertNull(Breeze.getSerializer(TestEnum.class.getName()));
         TestEnum testEnum = testSerialize(TestEnum.THREE, TestEnum.class);
         assertEquals(testEnum.THREE, testEnum);
@@ -394,6 +397,35 @@ public class BreezeRWTest {
         BreezeBuffer buf = new BreezeBuffer(128);
         BreezeWriter.writeObject(buf, map);
         throw new RuntimeException("should not here");
+    }
+
+    @Test
+    public void testConcurrent() throws InterruptedException {
+        // use commonSerializer
+        Breeze.getSerializerFactory().removeSerializer(TestObj.class.getName());
+        Breeze.getSerializerFactory().removeSerializer(TestSubObj.class.getName());
+
+        int concurrentNum = 50;
+        CyclicBarrier cyclicBarrier = new CyclicBarrier(concurrentNum);
+        AtomicInteger successCount = new AtomicInteger(0);
+
+        // concurrent serialize
+        TestObj testObj = getDefaultTestObj();
+        for (int i = 0; i < concurrentNum; i++) {
+            new Thread(() -> {
+                TestObj result = null;
+                try {
+                    cyclicBarrier.await();
+                    result = testSerialize(testObj, TestObj.class);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                assertEquals(testObj, result);
+                successCount.incrementAndGet();
+            }).start();
+        }
+        Thread.sleep(300);
+        assertEquals(concurrentNum, successCount.get());
     }
 
     private void testBase(Object[] expects) throws BreezeException {

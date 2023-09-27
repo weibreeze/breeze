@@ -36,8 +36,8 @@ import static com.weibo.breeze.type.Types.*;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class TypePackedMap implements BreezeType<Map<?, ?>> {
-    private BreezeType keyType; // for write
-    private BreezeType valueType; // for write
+    private volatile BreezeType keyType; // for write
+    private volatile BreezeType valueType; // for write
     private Type kType;
     private Type vType;
 
@@ -89,8 +89,15 @@ public class TypePackedMap implements BreezeType<Map<?, ?>> {
         }
         if (type == PACKED_MAP) {
             if (keyType == null) {
-                keyType = readBreezeType(buffer, kType);
-                valueType = readBreezeType(buffer, vType);
+                synchronized (this) {
+                    if (keyType == null) {
+                        keyType = readBreezeType(buffer, kType);
+                        valueType = readBreezeType(buffer, vType);
+                    } else {
+                        skipType(buffer);
+                        skipType(buffer);
+                    }
+                }
             } else {
                 skipType(buffer); // need check?
                 skipType(buffer);
@@ -132,8 +139,12 @@ public class TypePackedMap implements BreezeType<Map<?, ?>> {
                 throw new BreezeException("not support null value in breeze packed map. key:" + entry.getKey() + ", value:" + entry.getValue());
             }
             if (keyType == null) {
-                keyType = Breeze.getBreezeTypeByObject(entry.getKey());
-                valueType = Breeze.getBreezeTypeByObject(entry.getValue());
+                synchronized (this) {
+                    if (keyType == null) {
+                        keyType = Breeze.getBreezeTypeByObject(entry.getKey());
+                        valueType = Breeze.getBreezeTypeByObject(entry.getValue());
+                    }
+                }
                 keyType.putType(buffer);
                 valueType.putType(buffer);
             }

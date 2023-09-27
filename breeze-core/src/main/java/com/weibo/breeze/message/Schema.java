@@ -145,9 +145,9 @@ public class Schema {
         private int index;
         private String name;
         private String type;
-        private BreezeType breezeType;
+        private volatile BreezeType breezeType;
         private java.lang.reflect.Field field;
-        private boolean checked;// check breeze type by lazy
+        private volatile boolean checked;// check breeze type by lazy
         private boolean checkDefault; // 如果为true时，不对默认值进行序列化。
 
         public Field(int index, String name, String type) throws BreezeException {
@@ -234,9 +234,13 @@ public class Schema {
                 Object fieldObject = field.get(object);
                 if (fieldObject != null) {
                     if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
-                        breezeType = Breeze.getBreezeType(field.getGenericType());
-                        setCheckDefaultByType(field.getGenericType());
-                        checked = true;
+                        synchronized (this) {
+                            if (breezeType == null && !checked) {
+                                breezeType = Breeze.getBreezeType(field.getGenericType());
+                                setCheckDefaultByType(field.getGenericType());
+                                checked = true;
+                            }
+                        }
                     }
                     if (breezeType != null) {
                         if (breezeType instanceof TypePackedArray && field.getType().isArray()) { // Compatible with array
@@ -268,9 +272,13 @@ public class Schema {
             try {
                 Object fieldObject;
                 if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
-                    breezeType = Breeze.getBreezeType(field.getGenericType());
-                    setCheckDefaultByType(field.getGenericType());
-                    checked = true;
+                    synchronized (this) {
+                        if (breezeType == null && !checked) {
+                            breezeType = Breeze.getBreezeType(field.getGenericType());
+                            setCheckDefaultByType(field.getGenericType());
+                            checked = true;
+                        }
+                    }
                 }
                 if (breezeType != null) {
                     if (breezeType instanceof TypePackedArray && field.getType().isArray()) { // Compatible with array

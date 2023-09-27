@@ -37,7 +37,7 @@ import static com.weibo.breeze.type.Types.*;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class TypePackedArray implements BreezeType<List<?>> {
-    private BreezeType valueType;
+    private volatile BreezeType valueType;
     private Type vType;
 
     public TypePackedArray() {
@@ -86,9 +86,12 @@ public class TypePackedArray implements BreezeType<List<?>> {
         }
         if (isPacked) {
             if (valueType == null) {
-                valueType = readBreezeType(buffer, vType);
-                if (valueType == null) {
-                    throw new BreezeException("can not read breeze type from buffer for " + vType);
+                synchronized (this) {
+                    if (valueType == null) {
+                        valueType = readBreezeType(buffer, vType);
+                    } else {
+                        skipType(buffer);
+                    }
                 }
             } else {
                 skipType(buffer); // need check?
@@ -132,7 +135,11 @@ public class TypePackedArray implements BreezeType<List<?>> {
                 throw new BreezeException("not support null value in breeze packed array");
             }
             if (valueType == null) {
-                valueType = Breeze.getBreezeTypeByObject(v);
+                synchronized (this) {
+                    if (valueType == null) {
+                        valueType = Breeze.getBreezeTypeByObject(v);
+                    }
+                }
                 valueType.putType(buffer);
             }
             valueType.write(buffer, v, false);
@@ -157,7 +164,11 @@ public class TypePackedArray implements BreezeType<List<?>> {
                 throw new BreezeException("not support null value in breeze packed array");
             }
             if (valueType == null) {
-                valueType = Breeze.getBreezeTypeByObject(v);
+                synchronized (this) {
+                    if (valueType == null) {
+                        valueType = Breeze.getBreezeTypeByObject(v);
+                    }
+                }
                 valueType.putType(buffer);
             }
             valueType.write(buffer, v, false);
