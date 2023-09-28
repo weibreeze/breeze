@@ -7,7 +7,7 @@
     <groupId>com.weibo</groupId>
     <artifactId>breeze</artifactId>
     <packaging>pom</packaging>
-    <version>0.1.5-SNAPSHOT</version>
+    <version>0.1.5</version>
     <modules>
         <module>breeze-core</module>
         <module>breeze-autoscan</module>
