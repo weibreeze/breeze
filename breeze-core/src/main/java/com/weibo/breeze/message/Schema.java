@@ -204,25 +204,6 @@ public class Schema {
             this.breezeType = breezeType;
         }
 
-        public void setField(java.lang.reflect.Field field) throws BreezeException {
-            if (field != null) {
-                field.setAccessible(true);
-                Type type = field.getGenericType();
-                breezeType = Breeze.getBreezeType(type);
-                setCheckDefaultByType(type);
-                if (breezeType != null && breezeType.getType() == Types.PACKED_ARRAY) {
-                    if (type instanceof ParameterizedType) {
-                        type = ((ParameterizedType) type).getRawType();
-                    }
-                    if (type instanceof Class && !((Class) type).isAssignableFrom(List.class)) {
-                        breezeType = null; // 非list类型不使用breezeType进行编解码，使用Object兼容性会更好
-                        checked = true;
-                    }
-                }
-            }
-            this.field = field;
-        }
-
         public Object getFieldInstance(Object object) throws IllegalAccessException, BreezeException {
             checkField();
             return field.get(object);
@@ -307,6 +288,30 @@ public class Schema {
         public Type getGenericType() throws BreezeException {
             checkField();
             return field.getGenericType();
+        }
+
+        public java.lang.reflect.Field getField() throws BreezeException {
+            checkField();
+            return field;
+        }
+
+        public void setField(java.lang.reflect.Field field) throws BreezeException {
+            if (field != null) {
+                field.setAccessible(true);
+                Type type = field.getGenericType();
+                breezeType = Breeze.getBreezeType(type);
+                setCheckDefaultByType(type);
+                if (breezeType != null && breezeType.getType() == Types.PACKED_ARRAY) {
+                    if (type instanceof ParameterizedType) {
+                        type = ((ParameterizedType) type).getRawType();
+                    }
+                    if (type instanceof Class && !((Class) type).isAssignableFrom(List.class)) {
+                        breezeType = null; // 非list类型不使用breezeType进行编解码，使用Object兼容性会更好
+                        checked = true;
+                    }
+                }
+            }
+            this.field = field;
         }
 
         private void setCheckDefaultByType(Type fieldType) {

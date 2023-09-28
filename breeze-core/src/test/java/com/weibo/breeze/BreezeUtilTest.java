@@ -58,4 +58,19 @@ public class BreezeUtilTest extends TestCase {
         assertNotNull(resultMap.get(TestEnum.class));
         assertNotNull(resultMap.get(Schema.class));
     }
+
+    public void testGenerateSerializer() throws BreezeException {
+        Map<Class<?>, BreezeUtil.GenerateClassResult> resultMap;
+        Breeze.getSerializerFactory().removeSerializer(TestObj.class.getName());
+        Breeze.getSerializerFactory().removeSerializer(TestSubObj.class.getName());
+        resultMap = BreezeUtil.generateSchema(TestObj.class);
+        String content = BreezeUtil.toSerializerContent(resultMap.get(TestObj.class).schema);
+        assertTrue(content.length() > 100);
+        assertTrue(content.contains("implements Serializer<"));
+        assertTrue(content.contains("static {"));
+        assertTrue(content.contains("String[] names = new String[]{"));
+        assertTrue(content.contains("    public void writeToBuf("));
+        assertTrue(content.contains(" readFromBuf("));
+        assertTrue(content.contains("    public String[] getNames() {"));
+    }
 }

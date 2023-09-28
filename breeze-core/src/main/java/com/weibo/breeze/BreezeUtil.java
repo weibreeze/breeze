@@ -23,9 +23,17 @@ import com.weibo.breeze.message.Schema;
 import com.weibo.breeze.serializer.CommonSerializer;
 import com.weibo.breeze.serializer.EnumSerializer;
 import com.weibo.breeze.serializer.Serializer;
+import com.weibo.breeze.type.*;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Assist in generating java class serializer, schema, breeze file
@@ -33,20 +41,44 @@ import java.util.*;
  * @author zhanglei28
  * @date 2023/9/13.
  */
+@SuppressWarnings("rawtypes")
 public class BreezeUtil {
     // config keys
     public static final String WITH_STATIC_FIELD_KEY = "withStaticField";
-
+    // private values
     private static final Set<Class<?>> NOT_PROCESS_CLASS = new HashSet<>(Arrays.asList(
             Boolean.class, Byte.class, Character.class, Short.class, Integer.class, Long.class,
             Double.class, Float.class, Object.class, String.class, Void.TYPE
     ));
+    private static final Pattern classNamePattern = Pattern.compile("\\w+\\.\\w+(\\.\\w+)*");
     // default values
     public static int DEFAULT_MAX_FIELD_SIZE = 1000;
 
+    public static void generateBreezeFiles(Class<?> clz, String path) throws IOException {
+        generateBreezeFiles(clz, path, new HashMap<>(), false);
+    }
 
-    public static String generateBreezeSerializerContent(Class<?> clazz) {
-        throw new RuntimeException();
+    public static void generateBreezeFiles(Class<?> clz, String path, Map<String, String> configs, boolean withSerializer) throws IOException {
+        File directory = new File(path);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+        if (!directory.isDirectory()) {
+            throw new BreezeException("'path' is not a directory");
+        }
+        Map<Class<?>, BreezeUtil.GenerateClassResult> resultMap = generateSchema(clz, configs);
+        for (Map.Entry<Class<?>, GenerateClassResult> entry : resultMap.entrySet()) {
+            if (entry.getValue().success) {
+                Files.write(Paths.get(path + "/" + entry.getKey().getSimpleName() + ".breeze"), SchemaUtil.toFileContent(entry.getValue().schema).getBytes());
+                if (withSerializer) {
+                    try {
+                        Files.write(Paths.get(path + "/" + entry.getKey().getSimpleName() + "Serializer.java"), toSerializerContent(entry.getValue().schema).getBytes());
+                    } catch (BreezeException e) {
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+        }
     }
 
     public static Map<Class<?>, GenerateClassResult> generateSchema(Class<?> clz) {
@@ -368,6 +400,242 @@ public class BreezeUtil {
             return name.substring(packageName.length() + 1);
         }
         return name;
+    }
+
+    public static String toSerializerContent(Schema schema) throws BreezeException {
+        if (schema.isEnum()) {
+            throw new BreezeException("enum schema can use EnumSerializer directly");
+        }
+        CommonSerializer serializer = new CommonSerializer(schema);
+        // find special fields
+        StringBuilder dynamicImports = new StringBuilder(256);
+        ArrayList<Schema.Field> specialFields = new ArrayList<>();
+        for (Map.Entry<Integer, Schema.Field> entry : schema.getFields().entrySet()) {
+            BreezeType breezeType = entry.getValue().getBreezeType();
+            if (breezeType == null) {
+                breezeType = Breeze.getBreezeType(entry.getValue().getGenericType());
+                entry.getValue().setBreezeType(breezeType);
+            }
+            if (isSpecialType(breezeType)) {
+                specialFields.add(entry.getValue());
+            }
+        }
+
+        Class<?> clazz = serializer.newInstance().getClass();
+        String packageName = clazz.getPackage().getName();
+        StringBuilder content = new StringBuilder(1024);
+        // package
+        content.append("package ").append(packageName).append(";\n\n");
+        // imports
+        content.append("import com.weibo.breeze.*;\n" +
+                "import com.weibo.breeze.serializer.Serializer;\n" +
+                "import com.weibo.breeze.type.BreezeType;\n");
+        boolean containsList = false;
+        boolean containsMap = false;
+        boolean containsArray = false;
+        for (Schema.Field field : specialFields) {
+            if (field.getType().contains(".")) {
+                Matcher matcher = classNamePattern.matcher(field.getType());
+                while (matcher.find()) {
+                    content.append("import ").append(matcher.group()).append(";\n");
+                }
+            }
+            if (field.getBreezeType() instanceof TypePackedArray) {
+                containsList = true;
+            }
+            if (field.getBreezeType() instanceof TypePackedMap) {
+                containsMap = true;
+            }
+            if (field.getField().getType().isArray()) {
+                containsArray = true;
+            }
+        }
+        if (containsList) {
+            content.append("import java.util.List;\n");
+        }
+        if (containsMap) {
+            content.append("import java.util.Map;\n");
+        }
+        if (containsArray) {
+            content.append("import java.util.Arrays;\n" +
+                    "import java.util.stream.Collectors;\n");
+        }
+        content.append("import static com.weibo.breeze.type.Types.*;\n\n");
+        // class
+        content.append("@SuppressWarnings(\"unchecked\")\n" + "public class ").append(clazz.getSimpleName()).append("Serializer implements Serializer<").append(clazz.getSimpleName()).append("> {\n");
+        // fields
+        for (Schema.Field field : specialFields) {
+            content.append("    private static BreezeType<").append(simpleClassType(field.getGenericType())).append("> ")
+                    .append(field.getName()).append("BreezeType;\n");
+        }
+        // static block
+        content.append("\n    static {\n" +
+                "        try {\n");
+        for (Schema.Field field : specialFields) {
+            content.append("            ").append(field.getName()).append("BreezeType = Breeze.getBreezeType(").append(clazz.getSimpleName()).append(".class, \"").append(field.getName()).append("\");\n");
+        }
+        content.append("        } catch (BreezeException ignore) {\n" +
+                "        }\n" +
+                "    }\n\n");
+        // names
+        content.append("    String[] names = new String[]{").append(clazz.getSimpleName()).append(".class.getName()};\n");
+        // writeToBuf
+        content.append("    @Override\n" + "    public void writeToBuf(").append(clazz.getSimpleName()).append(" obj, BreezeBuffer buffer) throws BreezeException {\n").append("        BreezeWriter.writeMessage(buffer, () -> {\n");
+        for (Map.Entry<Integer, Schema.Field> entry : schema.getFields().entrySet()) {
+            Schema.Field field = entry.getValue();
+            content.append("            ").append(buildBreezeTypeString(field)).append(".writeMessageField(buffer, ").append(field.getIndex()).append(", ").append(buildGetterString(field)).append(");\n");
+        }
+        content.append("        });\n" +
+                "    }\n\n");
+
+        // readFromBuf
+        content.append("    @Override\n" + "    public ").append(clazz.getSimpleName()).append(" readFromBuf(BreezeBuffer buffer) throws BreezeException {\n")
+                .append("        ").append(buildConstructorString(clazz)).append("\n")
+                .append("        BreezeReader.readMessage(buffer, (int index) -> {\n" +
+                        "            switch (index) {\n");
+        for (Map.Entry<Integer, Schema.Field> entry : schema.getFields().entrySet()) {
+            Schema.Field field = entry.getValue();
+            String valueString = buildBreezeTypeString(field) + ".read(buffer)";
+            content.append("                case ").append(field.getIndex()).append(":\n").append("                    ").append(buildSetterString(field, valueString)).append("\n").append("                    break;\n");
+        }
+        content.append("                default: //skip unknown field\n" +
+                "                    BreezeReader.readObject(buffer, Object.class);\n" +
+                "            }\n" +
+                "        });\n" +
+                "        return obj;\n" +
+                "    }");
+
+        // finish
+        content.append("\n" +
+                "    @Override\n" +
+                "    public String[] getNames() {\n" +
+                "        return names;\n" +
+                "    }\n" +
+                "\n" +
+                "}");
+        return content.toString();
+    }
+
+    private static String buildBreezeTypeString(Schema.Field field) {
+        if (field.getBreezeType() instanceof TypeBool) {
+            return "TYPE_BOOL";
+        } else if (field.getBreezeType() instanceof TypeInt16) {
+            return "TYPE_INT16";
+        } else if (field.getBreezeType() instanceof TypeInt32) {
+            return "TYPE_INT32";
+        } else if (field.getBreezeType() instanceof TypeInt64) {
+            return "TYPE_INT64";
+        } else if (field.getBreezeType() instanceof TypeFloat32) {
+            return "TYPE_FLOAT32";
+        } else if (field.getBreezeType() instanceof TypeFloat64) {
+            return "TYPE_FLOAT64";
+        } else if (field.getBreezeType() instanceof TypeByte) {
+            return "TYPE_BYTE";
+        } else if (field.getBreezeType() instanceof TypeByteArray) {
+            return "TYPE_BYTE_ARRAY";
+        } else if (field.getBreezeType() instanceof TypeString) {
+            return "TYPE_STRING";
+        } else if (field.getBreezeType() instanceof TypeMap) {
+            return "TYPE_MAP";
+        } else if (field.getBreezeType() instanceof TypeArray) {
+            return "TYPE_ARRAY";
+        }
+        // special type
+        return field.getName() + "BreezeType";
+    }
+
+    private static boolean isSpecialType(BreezeType<?> breezeType) {
+        return breezeType instanceof TypePackedArray || breezeType instanceof TypePackedMap
+                || breezeType instanceof TypeMessage;
+    }
+
+    private static String buildGetterString(Schema.Field field) throws BreezeException {
+        String getterString = "obj.";
+        if (Modifier.isPublic(field.getField().getModifiers())) { // use field name
+            getterString += field.getName();
+        } else { // user getter method
+            if (field.getField().getType() == boolean.class) {
+                getterString += "is" + firstUpper(field.getName()) + "()";
+            } else {
+                getterString += "get" + firstUpper(field.getName()) + "()";
+            }
+        }
+        if (field.getField().getType().isArray()) { // array field
+            if (field.getField().getType().getComponentType().isPrimitive()) { // primitive type
+                getterString = "Arrays.stream(" + getterString + ").boxed().collect(Collectors.toList())";
+            } else {
+                getterString = "Arrays.asList(" + getterString + ")";
+            }
+        }
+        return getterString;
+    }
+
+    private static String buildSetterString(Schema.Field field, String valueString) throws BreezeException {
+        String setterString = "obj.";
+        if (field.getField().getType().isArray()) { // array field
+            if (field.getField().getType().getComponentType().isPrimitive()) { // primitive type
+                if (field.getField().getType().getComponentType() == int.class) {
+                    valueString += ".stream().mapToInt(Integer::intValue).toArray()";
+                } else if (field.getField().getType().getComponentType() == long.class) {
+                    valueString += ".stream().mapToLong(Long::longValue).toArray();";
+                } else {
+                    valueString += "->FIXME:convert List to primitive array";
+                }
+            } else {
+                valueString += ".toArray(new " + field.getField().getType().getComponentType().getSimpleName() + "[0])";
+            }
+        }
+        if (Modifier.isPublic(field.getField().getModifiers())) { // use field name
+            setterString += field.getName() + " = " + valueString + ";";
+        } else {// user getter method
+            setterString += "set" + firstUpper(field.getName()) + "(" + valueString + ");";
+        }
+        return setterString;
+    }
+
+    private static String buildConstructorString(Class<?> clz) {
+        try {
+            clz.newInstance();
+            return clz.getSimpleName() + " obj = new " + clz.getSimpleName() + "();";
+        } catch (ReflectiveOperationException e) {
+            return clz.getSimpleName() + ".builder().build();";
+        }
+    }
+
+    private static String firstUpper(String text) {
+        return text.substring(0, 1).toUpperCase() + text.substring(1);
+    }
+
+    private static String simpleClassType(Type fieldType) throws BreezeException {
+        Class<?> clz;
+        if (fieldType instanceof Class) {
+            clz = (Class) fieldType;
+            if (clz.isArray()) {
+                return "List<" + simpleClassType(clz.getComponentType()) + ">";
+            }
+            if (clz.isPrimitive()) { // primitive to wrapper
+                return MethodType.methodType(clz).wrap().returnType().getSimpleName();
+            }
+            return clz.getSimpleName();
+        } else if (fieldType instanceof ParameterizedType) {
+            ParameterizedType pt = (ParameterizedType) fieldType;
+            clz = (Class<?>) pt.getRawType();
+            if (Map.class.isAssignableFrom(clz)) {
+                if (pt.getActualTypeArguments().length != 2) {
+                    throw new BreezeException("class must has two argument generic type when the class is a subclass of map. type:" + fieldType);
+                }
+                return "Map<" + simpleClassType(pt.getActualTypeArguments()[0]) + ", " + simpleClassType(pt.getActualTypeArguments()[1]) + ">";
+            }
+            if (Collection.class.isAssignableFrom(clz)) {
+                if (pt.getActualTypeArguments().length != 1) {
+                    throw new BreezeException("class must has a argument generic type when the class is a subclass of Collection. type:" + fieldType);
+                }
+                return "List<" + simpleClassType(pt.getActualTypeArguments()[0]) + ">";
+            }
+            return clz.getSimpleName();
+        } else {
+            throw new BreezeException("unsupported type :" + fieldType);
+        }
     }
 
     public static class GenerateClassResult {
