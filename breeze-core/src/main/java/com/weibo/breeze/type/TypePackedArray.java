@@ -35,8 +35,9 @@ import static com.weibo.breeze.type.Types.*;
  * @author zhanglei28
  * @date 2019/7/2.
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class TypePackedArray implements BreezeType<List<?>> {
-    private BreezeType valueType;
+    private volatile BreezeType valueType;
     private Type vType;
 
     public TypePackedArray() {
@@ -59,7 +60,6 @@ public class TypePackedArray implements BreezeType<List<?>> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public List<?> read(BreezeBuffer buffer, boolean withType) throws BreezeException {
         byte type = PACKED_ARRAY;
         if (withType) {
@@ -80,14 +80,19 @@ public class TypePackedArray implements BreezeType<List<?>> {
         return list;
     }
 
-    @SuppressWarnings("unchecked")
     public <T> void readBySize(BreezeBuffer buffer, Collection<T> collection, Type vType, int size, boolean isPacked) throws BreezeException {
         if (size == 0) {
             return;
         }
         if (isPacked) {
             if (valueType == null) {
-                valueType = readBreezeType(buffer, vType);
+                synchronized (this) {
+                    if (valueType == null) {
+                        valueType = readBreezeType(buffer, vType);
+                    } else {
+                        skipType(buffer);
+                    }
+                }
             } else {
                 skipType(buffer); // need check?
             }
@@ -108,7 +113,6 @@ public class TypePackedArray implements BreezeType<List<?>> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void write(BreezeBuffer buffer, List<?> value, boolean withType) throws BreezeException {
         this.writeCollection(buffer, value, withType);
     }
@@ -131,7 +135,40 @@ public class TypePackedArray implements BreezeType<List<?>> {
                 throw new BreezeException("not support null value in breeze packed array");
             }
             if (valueType == null) {
-                valueType = Breeze.getBreezeType(v.getClass());
+                synchronized (this) {
+                    if (valueType == null) {
+                        valueType = Breeze.getBreezeTypeByObject(v);
+                    }
+                }
+                valueType.putType(buffer);
+            }
+            valueType.write(buffer, v, false);
+        }
+    }
+
+    public void writeArray(BreezeBuffer buffer, Object[] value, boolean withType) throws BreezeException {
+        // not check write count because value is temporary object
+        if (withType) {
+            buffer.put(PACKED_ARRAY);
+        }
+        int size = value.length;
+        buffer.putVarint(size);
+        if (size == 0) {
+            return;
+        }
+        if (valueType != null) {
+            valueType.putType(buffer);
+        }
+        for (Object v : value) {
+            if (v == null) {
+                throw new BreezeException("not support null value in breeze packed array");
+            }
+            if (valueType == null) {
+                synchronized (this) {
+                    if (valueType == null) {
+                        valueType = Breeze.getBreezeTypeByObject(v);
+                    }
+                }
                 valueType.putType(buffer);
             }
             valueType.write(buffer, v, false);

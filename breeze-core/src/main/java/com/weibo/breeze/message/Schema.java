@@ -20,8 +20,10 @@ package com.weibo.breeze.message;
 
 import com.weibo.breeze.*;
 import com.weibo.breeze.type.BreezeType;
+import com.weibo.breeze.type.TypePackedArray;
 import com.weibo.breeze.type.Types;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.HashMap;
@@ -33,15 +35,15 @@ import java.util.Map;
  * @date 2019/3/21.
  */
 public class Schema {
+    private final Map<String, Field> fieldNameMap = new HashMap<>();
+    private final Map<Integer, Field> fieldIndexMap = new HashMap<>(0);
+    private final Map<Integer, String> enumValues = new HashMap<>(0);
+    private final Map<String, Integer> enumNameMap = new HashMap<>(0);
     private String name;//schema name
     private String alias;
-    private String javaName; // java class name. it will null if not a inner class.
+    private String javaName; // java class name. it will be null if not an inner class.
     private boolean primitive = true; // is generated from schema. true : from schema; false : from class dynamically
-    private Map<String, Field> fieldNameMap = new HashMap<>();
-    private Map<Integer, Field> fieldIndexMap = new HashMap<>(0);
     private boolean isEnum;
-    private Map<Integer, String> enumValues = new HashMap<>(0);
-    private Map<String, Integer> enumNameMap = new HashMap<>(0);
 
     public static Schema newSchema(String name) {
         return new Schema().setName(name);
@@ -138,13 +140,14 @@ public class Schema {
         return this;
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static class Field {
         private int index;
         private String name;
         private String type;
-        private BreezeType breezeType;
+        private volatile BreezeType breezeType;
         private java.lang.reflect.Field field;
-        private boolean checked;// check breeze type by lazy
+        private volatile boolean checked;// check breeze type by lazy
         private boolean checkDefault; // 如果为true时，不对默认值进行序列化。
 
         public Field(int index, String name, String type) throws BreezeException {
@@ -201,25 +204,6 @@ public class Schema {
             this.breezeType = breezeType;
         }
 
-        public void setField(java.lang.reflect.Field field) throws BreezeException {
-            if (field != null) {
-                field.setAccessible(true);
-                Type type = field.getGenericType();
-                breezeType = Breeze.getBreezeType(type);
-                setCheckDefaultByType(type);
-                if (breezeType.getType() == Types.PACKED_ARRAY) {
-                    if (type instanceof ParameterizedType) {
-                        type = ((ParameterizedType) type).getRawType();
-                    }
-                    if (type instanceof Class && !((Class) type).isAssignableFrom(List.class)) {
-                        breezeType = null; // 非list类型不使用breezeType进行编解码，使用Object兼容性会更好
-                        checked = true;
-                    }
-                }
-            }
-            this.field = field;
-        }
-
         public Object getFieldInstance(Object object) throws IllegalAccessException, BreezeException {
             checkField();
             return field.get(object);
@@ -228,16 +212,36 @@ public class Schema {
         public void writeField(BreezeBuffer buffer, Object object) throws BreezeException {
             checkField();
             try {
-                if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
-                    breezeType = Breeze.getBreezeType(field.getGenericType());
-                    setCheckDefaultByType(field.getGenericType());
-                    checked = true;
-                }
-                if (breezeType != null) {
-                    breezeType.writeMessageField(buffer, index, field.get(object), true, checkDefault);
-                } else if (object != null) {
-                    buffer.putVarint(index);
-                    BreezeWriter.writeObject(buffer, field.get(object));
+                Object fieldObject = field.get(object);
+                if (fieldObject != null) {
+                    if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
+                        synchronized (this) {
+                            if (breezeType == null && !checked) {
+                                breezeType = Breeze.getBreezeType(field.getGenericType());
+                                setCheckDefaultByType(field.getGenericType());
+                                checked = true;
+                            }
+                        }
+                    }
+                    if (breezeType != null) {
+                        if (breezeType instanceof TypePackedArray && field.getType().isArray()) { // Compatible with array
+                            buffer.putVarint(index);
+                            if (field.getType().getComponentType().isPrimitive()) {
+                                Object[] tempObjects = new Object[Array.getLength(fieldObject)];
+                                for (int i = 0; i < tempObjects.length; i++) {
+                                    tempObjects[i] = Array.get(fieldObject, i);
+                                }
+                                ((TypePackedArray) breezeType).writeArray(buffer, tempObjects, true);
+                            } else {
+                                ((TypePackedArray) breezeType).writeArray(buffer, (Object[]) fieldObject, true);
+                            }
+                        } else {
+                            breezeType.writeMessageField(buffer, index, fieldObject, true, checkDefault);
+                        }
+                    } else if (object != null) {
+                        buffer.putVarint(index);
+                        BreezeWriter.writeObject(buffer, fieldObject);
+                    }
                 }
             } catch (IllegalAccessException e) {
                 throw new BreezeException("can not get field. class:" + field.getDeclaringClass() + ", field: " + name + ". e:" + e.getMessage());
@@ -249,12 +253,24 @@ public class Schema {
             try {
                 Object fieldObject;
                 if (breezeType == null && !checked) {// lazy init breeze type if field class be circular referenced
-                    breezeType = Breeze.getBreezeType(field.getGenericType());
-                    setCheckDefaultByType(field.getGenericType());
-                    checked = true;
+                    synchronized (this) {
+                        if (breezeType == null && !checked) {
+                            breezeType = Breeze.getBreezeType(field.getGenericType());
+                            setCheckDefaultByType(field.getGenericType());
+                            checked = true;
+                        }
+                    }
                 }
                 if (breezeType != null) {
-                    fieldObject = breezeType.read(buffer);
+                    if (breezeType instanceof TypePackedArray && field.getType().isArray()) { // Compatible with array
+                        List<?> tempList = ((TypePackedArray) breezeType).read(buffer);
+                        fieldObject = Array.newInstance(field.getType().getComponentType(), tempList.size());
+                        for (int i = 0; i < tempList.size(); i++) {
+                            Array.set(fieldObject, i, tempList.get(i));
+                        }
+                    } else {
+                        fieldObject = breezeType.read(buffer);
+                    }
                 } else {
                     fieldObject = BreezeReader.readObjectByType(buffer, field.getGenericType());
                 }
@@ -272,6 +288,30 @@ public class Schema {
         public Type getGenericType() throws BreezeException {
             checkField();
             return field.getGenericType();
+        }
+
+        public java.lang.reflect.Field getField() throws BreezeException {
+            checkField();
+            return field;
+        }
+
+        public void setField(java.lang.reflect.Field field) throws BreezeException {
+            if (field != null) {
+                field.setAccessible(true);
+                Type type = field.getGenericType();
+                breezeType = Breeze.getBreezeType(type);
+                setCheckDefaultByType(type);
+                if (breezeType != null && breezeType.getType() == Types.PACKED_ARRAY) {
+                    if (type instanceof ParameterizedType) {
+                        type = ((ParameterizedType) type).getRawType();
+                    }
+                    if (type instanceof Class && !((Class) type).isAssignableFrom(List.class)) {
+                        breezeType = null; // 非list类型不使用breezeType进行编解码，使用Object兼容性会更好
+                        checked = true;
+                    }
+                }
+            }
+            this.field = field;
         }
 
         private void setCheckDefaultByType(Type fieldType) {

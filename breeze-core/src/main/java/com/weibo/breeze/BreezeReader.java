@@ -209,12 +209,17 @@ public class BreezeReader {
                     Schema schema = SchemaLoader.loadSchema(name);
                     if (schema != null) {
                         serializer = new CommonSerializer(schema);
+                        Breeze.registerSerializer(name, serializer);
                     }
                 }
                 if (serializer != null) {
                     return serializer.readFromBuf(buffer);
                 }
-                if (clz == Object.class) {
+                try {
+                    clz = Class.forName(name); // check if the specified class exists
+                } catch (ClassNotFoundException ignore) {
+                }
+                if (clz == Object.class) { // the specified class not exists
                     GenericMessage genericMessage = new GenericMessage();
                     genericMessage.setName(name);
                     genericMessage.readFromBuf(buffer);
@@ -225,6 +230,7 @@ public class BreezeReader {
             if (serializer != null) {
                 return serializer.readFromBuf(buffer);
             }
+            throw new BreezeException("can not serialize message named " + name);
         }
 
         Object o = null;
@@ -479,10 +485,15 @@ public class BreezeReader {
                     Schema schema = SchemaLoader.loadSchema(name);
                     if (schema != null) {
                         serializer = new CommonSerializer(schema);
+                        Breeze.registerSerializer(name, serializer);
                     }
                 }
                 if (serializer != null) {
                     return new TypeMessage(serializer);
+                }
+                try {
+                    clz = Class.forName(name); // check if the specified class exists
+                } catch (ClassNotFoundException ignore) {
                 }
                 if (clz == Object.class) {
                     GenericMessage genericMessage = new GenericMessage();
@@ -520,7 +531,7 @@ public class BreezeReader {
             case BYTE_ARRAY:
                 return TYPE_BYTE_ARRAY;
         }
-        return null;
+        throw new BreezeException("can not read breeze type from buffer, type: " + bType);
     }
 
     public static String readMessageName(BreezeBuffer buffer, byte typeByte) throws BreezeException {

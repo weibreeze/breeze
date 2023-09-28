@@ -34,9 +34,10 @@ import static com.weibo.breeze.type.Types.*;
  * @author zhanglei28
  * @date 2019/7/2.
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class TypePackedMap implements BreezeType<Map<?, ?>> {
-    private BreezeType keyType; // for write
-    private BreezeType valueType; // for write
+    private volatile BreezeType keyType; // for write
+    private volatile BreezeType valueType; // for write
     private Type kType;
     private Type vType;
 
@@ -63,13 +64,11 @@ public class TypePackedMap implements BreezeType<Map<?, ?>> {
 
     //  only used for message or serializer, key type and value type should not null.
     @Override
-    @SuppressWarnings("unchecked")
     public Map<?, ?> read(BreezeBuffer buffer, boolean withType) throws BreezeException {
         return read(buffer, null, kType, vType, withType);
     }
 
     // used for read object, key type maybe null.
-    @SuppressWarnings("unchecked")
     public <T, K> Map<T, K> read(BreezeBuffer buffer, Map<T, K> map, Type kType, Type vType, boolean withType) throws BreezeException {
         byte type = PACKED_MAP;
         if (withType) {
@@ -90,8 +89,15 @@ public class TypePackedMap implements BreezeType<Map<?, ?>> {
         }
         if (type == PACKED_MAP) {
             if (keyType == null) {
-                keyType = readBreezeType(buffer, kType);
-                valueType = readBreezeType(buffer, vType);
+                synchronized (this) {
+                    if (keyType == null) {
+                        keyType = readBreezeType(buffer, kType);
+                        valueType = readBreezeType(buffer, vType);
+                    } else {
+                        skipType(buffer);
+                        skipType(buffer);
+                    }
+                }
             } else {
                 skipType(buffer); // need check?
                 skipType(buffer);
@@ -114,7 +120,6 @@ public class TypePackedMap implements BreezeType<Map<?, ?>> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void write(BreezeBuffer buffer, Map<?, ?> value, boolean withType) throws BreezeException {
         checkWriteCount(buffer, value);
         if (withType) {
@@ -134,8 +139,12 @@ public class TypePackedMap implements BreezeType<Map<?, ?>> {
                 throw new BreezeException("not support null value in breeze packed map. key:" + entry.getKey() + ", value:" + entry.getValue());
             }
             if (keyType == null) {
-                keyType = Breeze.getBreezeType(entry.getKey().getClass());
-                valueType = Breeze.getBreezeType(entry.getValue().getClass());
+                synchronized (this) {
+                    if (keyType == null) {
+                        keyType = Breeze.getBreezeTypeByObject(entry.getKey());
+                        valueType = Breeze.getBreezeTypeByObject(entry.getValue());
+                    }
+                }
                 keyType.putType(buffer);
                 valueType.putType(buffer);
             }

@@ -39,6 +39,8 @@ public class CommonSerializer<T> implements Serializer<T> {
     private Object buildObject;
     private Schema schema;
     private String cleanName;
+    private Map<Integer, Integer> fieldHashIndexMap = new HashMap<>(0); // Store the hash value of the field name. Used to solve deserialize compatibility
+
 
     public CommonSerializer(Class<T> clz) throws BreezeException {
         checkClass(clz);
@@ -62,7 +64,7 @@ public class CommonSerializer<T> implements Serializer<T> {
                 if (!target.containsKey(field.getName())
                         && !Modifier.isFinal(field.getModifiers())
                         && (WITH_STATIC_FIELD || !Modifier.isStatic(field.getModifiers()))) {
-                    // if has getter method
+                    // if it has getter method
                     for (Method method : methods) {
                         if (method.getName().equalsIgnoreCase("get" + field.getName())
                                 || ((field.getType() == boolean.class)
@@ -110,6 +112,7 @@ public class CommonSerializer<T> implements Serializer<T> {
         for (Map.Entry<Integer, Schema.Field> entry : fieldMap.entrySet()) {
             try {
                 entry.getValue().setField(getField(clz, entry.getValue().getName()));
+                fieldHashIndexMap.put(getHash(entry.getValue().getName()), entry.getKey());
             } catch (NoSuchFieldException e) {
                 throw new BreezeException("can not get field from class " + clz.getName() + ", field:" + entry.getValue().getName());
             }
@@ -127,7 +130,7 @@ public class CommonSerializer<T> implements Serializer<T> {
         return name.hashCode() & 0x7fffffff;
     }
 
-    private static List<Field> getAllFields(Class clz) {
+    private static List<Field> getAllFields(Class<?> clz) {
         ArrayList<Field> list = new ArrayList<>();
         Field[] fields;
         do {
@@ -138,7 +141,7 @@ public class CommonSerializer<T> implements Serializer<T> {
         return list;
     }
 
-    private static Field getField(Class clz, String name) throws NoSuchFieldException {
+    private static Field getField(Class<?> clz, String name) throws NoSuchFieldException {
         Field field;
         do {
             try {
@@ -163,18 +166,12 @@ public class CommonSerializer<T> implements Serializer<T> {
 
     @Override
     public T readFromBuf(BreezeBuffer buffer) throws BreezeException {
-        final T t;
-        try {
-            if (buildMethod != null) {
-                t = (T) buildMethod.invoke(buildObject);
-            } else {
-                t = clz.newInstance();
-            }
-        } catch (ReflectiveOperationException e1) {
-            throw new BreezeException("CommonSerializer read fail. can not create default object. class:" + clz);
-        }
+        final T t = newInstance();
         BreezeReader.readMessage(buffer, (int index) -> {
             Schema.Field field = schema.getFieldByIndex(index);
+            if (field == null && schema.isPrimitive() && fieldHashIndexMap.containsKey(index)) {
+                field = schema.getFieldByIndex(fieldHashIndexMap.get(index)); // try using hash index
+            }
             if (field == null) { // ignore unknown fields
                 BreezeReader.readObject(buffer, Object.class);
                 return;
@@ -189,6 +186,17 @@ public class CommonSerializer<T> implements Serializer<T> {
         return names;
     }
 
+    public T newInstance() throws BreezeException {
+        try {
+            if (buildMethod != null) {
+                return (T) buildMethod.invoke(buildObject);
+            }
+            return clz.newInstance();
+        } catch (ReflectiveOperationException e1) {
+            throw new BreezeException("CommonSerializer read fail. can not create default object. class:" + clz);
+        }
+    }
+
     private void checkClass(Class<T> clz) throws BreezeException {
         if (clz == null) {
             throw new BreezeException("class must not null when create CommonSerializer");
@@ -196,7 +204,7 @@ public class CommonSerializer<T> implements Serializer<T> {
         try {
             clz.newInstance();
         } catch (ReflectiveOperationException e) {
-            // if has builder like lombok
+            // if it has builder like lombok
             try {
                 Method method = clz.getMethod("builder");
                 if (Modifier.isStatic(method.getModifiers())) {
